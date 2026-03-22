@@ -19,7 +19,15 @@ from decimal import Decimal
 from sqlalchemy import DateTime, Enum as SAEnum, func, ForeignKey, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from models.base import Base
-from permissions.roles import ContractStatus
+import enum
+
+
+class ContractStatus(str, enum.Enum):
+    DRAFT = "draft"
+    PENDING = "pending"
+    SIGNED = "signed"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
 
 
 class Contract(Base):
@@ -57,9 +65,10 @@ class Contract(Base):
     client_id: Mapped[int | None] = mapped_column(
         ForeignKey("clients.id", ondelete="SET NULL"), nullable=True
     )
-    commercial_id: Mapped[int] = mapped_column(
-        ForeignKey("collaborators.id"), nullable=False
-    )
+
+    # To update later
+    commercial_id: Mapped[int] = mapped_column(nullable=False)
+
     total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     remaining_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -76,10 +85,7 @@ class Contract(Base):
         back_populates="contracts",
         passive_deletes=True
     )
-    commercial: Mapped["Collaborator"] = relationship(
-        back_populates="contracts",
-        foreign_keys="[Contract.commercial_id]"
-    )
+
     event: Mapped["Event | None"] = relationship(
         back_populates="contract",
         uselist=False
