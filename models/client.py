@@ -15,10 +15,20 @@ Deletion policy:
 """
 
 from datetime import datetime
-from sqlalchemy import String, ForeignKey, DateTime, Enum as SAEnum, func
+from sqlalchemy import String, DateTime, Enum as SAEnum, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from models.base import Base
-from permissions.roles import ClientStatus
+import enum
+
+
+class ClientStatus(str, enum.Enum):
+    PROSPECT = "prospect"
+    IN_NEGOTIATION = "in_negotiation"
+    PENDING_SIGNATURE = "pending_signature"
+    ACTIVE = "active"
+    IN_SUPPORT = "in_support"
+    COMPLETED = "completed"
+    INACTIVE = "inactive"
 
 
 class Client(Base):
@@ -59,9 +69,10 @@ class Client(Base):
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True, onupdate=func.now()
     )
-    commercial_id: Mapped[int] = mapped_column(
-        ForeignKey("collaborators.id"), nullable=False
-    )
+
+    # To update later
+    commercial_id: Mapped[int] = mapped_column(nullable=False)
+
     status: Mapped[ClientStatus] = mapped_column(
         SAEnum(ClientStatus),
         default=ClientStatus.PROSPECT,
@@ -69,7 +80,7 @@ class Client(Base):
         nullable=False
     )
 
-    commercial: Mapped["Collaborator"] = relationship(back_populates="clients")
+
     contracts: Mapped[list["Contract"]] = relationship(
         back_populates="client",
         passive_deletes=True
