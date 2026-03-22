@@ -15,7 +15,7 @@ Deletion policy:
 """
 
 from datetime import datetime
-from sqlalchemy import String, ForeignKey, DateTime, Enum as SAEnum, func
+from sqlalchemy import String, DateTime, Enum as SAEnum, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from models.base import Base
 import enum
@@ -69,6 +69,9 @@ class Client(Base):
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True, onupdate=func.now()
     )
+
+    # To update later
+    commercial_id: Mapped[int] = mapped_column(nullable=False)
 
     status: Mapped[ClientStatus] = mapped_column(
         SAEnum(ClientStatus),

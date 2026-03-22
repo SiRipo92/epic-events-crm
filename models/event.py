@@ -50,9 +50,10 @@ class Event(Base):
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
     attendees: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    support_id: Mapped[int | None] = mapped_column(
-        ForeignKey("collaborators.id"), nullable=True
-    )
+
+    # To update later
+    support_id: Mapped[int | None] = mapped_column(nullable=True)
+
     is_cancelled: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=false(), nullable=False
     )

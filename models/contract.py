@@ -65,9 +65,10 @@ class Contract(Base):
     client_id: Mapped[int | None] = mapped_column(
         ForeignKey("clients.id", ondelete="SET NULL"), nullable=True
     )
-    commercial_id: Mapped[int] = mapped_column(
-        ForeignKey("collaborators.id"), nullable=False
-    )
+
+    # To update later
+    commercial_id: Mapped[int] = mapped_column(nullable=False)
+
     total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     remaining_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
