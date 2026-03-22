@@ -1,3 +1,11 @@
+"""
+Application configuration for Epic Events CRM.
+
+Loads environment variables from .env via python-dotenv and exposes
+a Settings object used throughout the application. Sentry is
+initialised here if a DSN is configured.
+"""
+
 import os
 from typing import Any
 from dotenv import load_dotenv
