@@ -1,0 +1,41 @@
+# Environment variables — never commit these
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# pytest cache and coverage
+.pytest_cache/
+tests/coverage_html/
+.coverage
+htmlcov/
+
+# Alembic — don't ignore versions folder, migrations are committed
+# but ignore any local alembic config overrides
+alembic.ini.local
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+
+# macOS system files
+.DS_Store
+
+# Distribution / packaging (if ever needed)
+dist/
+build/
+*.egg-info/
+
+# Sentry (if any local config generated)
+.sentryclirc
+
+# Logs
+*.log

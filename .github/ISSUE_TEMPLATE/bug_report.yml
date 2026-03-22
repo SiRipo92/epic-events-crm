@@ -1,0 +1,51 @@
+name: Bug Report
+description: Report a bug or unexpected behaviour in Epic Events CRM
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: input
+    id: command
+    attributes:
+      label: Command that triggered the bug
+      placeholder: "e.g. python main.py clients list"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      placeholder: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Log in as role X
+        2. Run command Y
+        3. Enter input Z
+        4. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      placeholder: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      placeholder: What actually happened? Paste any error output here.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "e.g. macOS 14.5, Python 3.11, PostgreSQL 17"
+    validations:
+      required: true

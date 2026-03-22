@@ -1,0 +1,35 @@
+name: Epic
+description: A feature group spanning multiple user stories
+labels: ["epic"]
+body:
+  - type: input
+    id: epic_title
+    attributes:
+      label: Epic Title
+      placeholder: "Epic 2: Authentication & Management"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What this epic delivers and why
+    validations:
+      required: true
+
+  - type: textarea
+    id: stories
+    attributes:
+      label: User Stories in Scope
+      placeholder: |
+        - US-01: Create collaborator
+        - US-02: Update collaborator
+    validations:
+      required: true
+
+  - type: input
+    id: milestone
+    attributes:
+      label: Sprint / Milestone
+      placeholder: "Sprint 2 — Week 3-4"

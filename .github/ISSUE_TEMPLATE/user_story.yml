@@ -1,0 +1,113 @@
+name: User Story
+description: A single user story linked to an epic and sprint
+title: "[US-XX] "
+labels: ["user-story"]
+body:
+  - type: input
+    id: story_id
+    attributes:
+      label: Story ID
+      placeholder: "e.g. US-06"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: Role
+      description: Which user role does this story belong to?
+      options:
+        - Management
+        - Commercial
+        - Support
+        - All roles
+    validations:
+      required: true
+
+  - type: textarea
+    id: story
+    attributes:
+      label: User Story
+      placeholder: "As a [role], I want to [action], so that [benefit]."
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      placeholder: |
+        - [ ] Criteria 1
+        - [ ] Criteria 2
+        - [ ] Criteria 3
+    validations:
+      required: true
+
+  - type: input
+    id: epic
+    attributes:
+      label: Linked Epic
+      placeholder: "e.g. #1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sprint
+    attributes:
+      label: Sprint
+      options:
+        - "Sprint 1 — Project Foundation"
+        - "Sprint 2 — Authentication & Management"
+        - "Sprint 3 — Commercial & Support"
+        - "Sprint 4 — Testing & Delivery"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How critical is this story to the overall delivery?
+      options:
+        - "Critical"
+        - "High"
+        - "Medium"
+        - "Low"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: T-Shirt Size
+      description: Rough effort estimate for this story
+      options:
+        - "XS — a few lines, trivial change"
+        - "S — half a day"
+        - "M — one to two days"
+        - "L — most of a sprint"
+        - "XL — needs breaking down"
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Which other user stories must be completed before this one can start?
+      placeholder: |
+        - US-12: Login must exist before any role-protected command works
+        - US-06: Client must exist before a contract can be created
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Tasks
+      description: Implementation checklist — one task per layer touched by this story
+      placeholder: |
+        - [ ] service function in services/
+        - [ ] CLI command in cli/commands/
+        - [ ] Rich output in views/
+        - [ ] Unit test
+        - [ ] Integration test
+        - [ ] Functional test
