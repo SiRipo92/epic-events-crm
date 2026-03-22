@@ -58,7 +58,7 @@ class Event(Base):
     )
 
     contract: Mapped["Contract"] = relationship(back_populates="event")
-    support: Mapped["Collaborator | None"] = relationship(back_populates="events")
+
 
     def has_support(self) -> bool:
         """Return True if a support collaborator is assigned to this event.
