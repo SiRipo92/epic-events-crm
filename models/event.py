@@ -13,7 +13,7 @@ Deletion policy:
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import String, ForeignKey, Integer, Text, DateTime, Boolean, false
+from sqlalchemy import  Boolean, Integer, DateTime, false, ForeignKey, func, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from models.base import Base
 
@@ -47,8 +47,8 @@ class Event(Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     start_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    location: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    attendees: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    location: Mapped[str | None] = mapped_column(String(255), nullable=False)
+    attendees: Mapped[int | None] = mapped_column(Integer, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # To update later
@@ -56,6 +56,17 @@ class Event(Base):
 
     is_cancelled: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=false(), nullable=False
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+        onupdate=func.now(),
     )
 
     contract: Mapped["Contract"] = relationship(back_populates="event")
