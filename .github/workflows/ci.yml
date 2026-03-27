@@ -2,13 +2,38 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Check import order (isort)
+        run: isort --check-only .
+
+      - name: Check formatting (black)
+        run: black --check .
+
+      - name: Lint (flake8)
+        run: flake8 .
+
   test:
     runs-on: ubuntu-latest
+    needs: lint
 
     services:
       postgres:
@@ -35,16 +60,14 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
+        run: pip install -r requirements-dev.txt
 
       - name: Run tests with coverage
         env:
           DATABASE_URL: postgresql://epic_events_user:test_password@localhost/epic_events_test
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: |
-          pytest --cov=. --cov-report=term-missing --cov-report=html --ignore=tests/integration --ignore=tests/functional || true
+          pytest --cov=. --cov-report=term-missing --cov-report=html --ignore=tests/integration --ignore=tests/functional
 
       - name: Upload coverage report
         if: always()

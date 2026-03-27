@@ -23,22 +23,28 @@ class TestClientFullName:
         client.last_name = "Durand"
         assert client.full_name == "Jean Durand"
 
-    @pytest.mark.parametrize("first, last, expected", [
-        ("Jean", "Durand", "Jean Durand"),
-        ("Marie", "Leclerc", "Marie Leclerc"),
-        ("Anne", "de la Rue", "Anne de la Rue"),  # edge: compound name
-    ])
+    @pytest.mark.parametrize(
+        "first, last, expected",
+        [
+            ("Jean", "Durand", "Jean Durand"),
+            ("Marie", "Leclerc", "Marie Leclerc"),
+            ("Anne", "de la Rue", "Anne de la Rue"),  # edge: compound name
+        ],
+    )
     def test_full_name(self, client, first, last, expected):
         """Parametrized: full_name returns first + last in display format."""
         client.first_name = first
         client.last_name = last
         assert client.full_name == expected
 
-    @pytest.mark.parametrize("first, last, expected", [
-        ("Jean", "Durand", "DURAND, Jean"),
-        ("Marie", "Leclerc", "LECLERC, Marie"),
-        ("Anne", "de la Rue", "DE LA RUE, Anne"),  # edge: compound name
-    ])
+    @pytest.mark.parametrize(
+        "first, last, expected",
+        [
+            ("Jean", "Durand", "DURAND, Jean"),
+            ("Marie", "Leclerc", "LECLERC, Marie"),
+            ("Anne", "de la Rue", "DE LA RUE, Anne"),  # edge: compound name
+        ],
+    )
     def test_full_name_formal(self, client, first, last, expected):
         """Parametrized: full_name_formal returns LAST, First format."""
         client.first_name = first

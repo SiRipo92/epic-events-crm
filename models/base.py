@@ -15,4 +15,5 @@ class Base(DeclarativeBase):
     Inheriting from this class registers a model with SQLAlchemy's
     metadata, enabling Alembic to detect and autogenerate migrations.
     """
+
     pass

@@ -1,0 +1,19 @@
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.venv
+  | migrations
+  | __pycache__
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+skip = [".venv", "migrations"]
+
+[tool.flake8]
+# flake8 doesn't read pyproject.toml natively — use setup.cfg instead

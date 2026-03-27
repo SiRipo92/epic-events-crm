@@ -13,8 +13,10 @@ Deletion policy:
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import  Boolean, Integer, DateTime, false, ForeignKey, func, String, Text
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, false, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from models.base import Base
 
 
@@ -41,24 +43,18 @@ class Event(Base):
     __tablename__ = "events"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    contract_id: Mapped[int] = mapped_column(
-        ForeignKey("contracts.id"), nullable=False
-    )
+    contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
-    start_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    start_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     end_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     # Location fields that will be computed to build a string
     # And allow for more efficient filtering
-    location_street: Mapped[str | None] = mapped_column(
-        String(255), nullable=True
-    )
-    location_zip: Mapped[str | None] = mapped_column(
-        String(20), nullable=True
-    )
-    location_city: Mapped[str | None] = mapped_column(
-        String(100), nullable=True
-    )
+    location_street: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    location_zip: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    location_city: Mapped[str | None] = mapped_column(String(100), nullable=True)
     location_country: Mapped[str | None] = mapped_column(
         String(100), nullable=True, default="France", server_default="France"
     )
@@ -89,7 +85,7 @@ class Event(Base):
         onupdate=func.now(),
     )
 
-    contract: Mapped["Contract"] = relationship(back_populates="event")
+    contract: Mapped["Contract"] = relationship(back_populates="event")  # noqa: F821
 
     @property
     def location(self) -> str | None:
@@ -101,18 +97,14 @@ class Event(Base):
         Example:
             "34 rue de Albatross, 92000 Nanterre, France"
         """
-        city_zip = " ".join(
-            p for p in [self.location_zip, self.location_city] if p
-        )
+        city_zip = " ".join(p for p in [self.location_zip, self.location_city] if p)
         parts = [self.location_street, city_zip or None, self.location_country]
         joined = ", ".join(p for p in parts if p)
         return joined if joined else None
 
     @property
     def has_support(self) -> bool:
-        """
-        Return True if a support collaborator is assigned to this event.
-        """
+        """Return True if a support collaborator is assigned to this event."""
         return self.support_id is not None
 
     @property

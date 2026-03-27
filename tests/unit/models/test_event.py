@@ -7,8 +7,9 @@ Tests cover:
     - is_past computed property
 """
 
-import pytest
 from datetime import datetime
+
+import pytest
 
 
 class TestEventHasSupport:
@@ -34,12 +35,15 @@ class TestEventDurationHours:
     Edge cases:  midnight crossing, zero duration, fractional hours.
     """
 
-    @pytest.mark.parametrize("start, end, expected", [
-        (datetime(2025, 9, 1,  9,  0), datetime(2025, 9, 1, 17,  0), 8.0),
-        (datetime(2025, 9, 1, 18,  0), datetime(2025, 9, 1, 19, 30), 1.5),
-        (datetime(2025, 9, 1, 22,  0), datetime(2025, 9, 2,  2,  0), 4.0),
-        (datetime(2025, 9, 1, 12,  0), datetime(2025, 9, 1, 12,  0), 0.0),
-    ])
+    @pytest.mark.parametrize(
+        "start, end, expected",
+        [
+            (datetime(2025, 9, 1, 9, 0), datetime(2025, 9, 1, 17, 0), 8.0),
+            (datetime(2025, 9, 1, 18, 0), datetime(2025, 9, 1, 19, 30), 1.5),
+            (datetime(2025, 9, 1, 22, 0), datetime(2025, 9, 2, 2, 0), 4.0),
+            (datetime(2025, 9, 1, 12, 0), datetime(2025, 9, 1, 12, 0), 0.0),
+        ],
+    )
     def test_duration_hours(self, event_without_support, start, end, expected):
         """Parametrized: duration_hours returns correct value for all scenarios."""
         event_without_support.start_date = start

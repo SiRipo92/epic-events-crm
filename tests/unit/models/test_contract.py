@@ -9,35 +9,40 @@ Tests cover:
 """
 
 import pytest
-from decimal import Decimal
 
-from models.contract import Contract, ContractStatus
+from models.contract import ContractStatus
 
 
 class TestContractStatusProperties:
     """Tests for is_signed and is_cancelled computed properties."""
 
-    @pytest.mark.parametrize("status, expected", [
-        (ContractStatus.SIGNED,            True),
-        (ContractStatus.DEPOSIT_RECEIVED,  True),
-        (ContractStatus.PAID_IN_FULL,      True),
-        (ContractStatus.DRAFT,             False),
-        (ContractStatus.PENDING,           False),
-        (ContractStatus.CANCELLED,         False),
-    ])
+    @pytest.mark.parametrize(
+        "status, expected",
+        [
+            (ContractStatus.SIGNED, True),
+            (ContractStatus.DEPOSIT_RECEIVED, True),
+            (ContractStatus.PAID_IN_FULL, True),
+            (ContractStatus.DRAFT, False),
+            (ContractStatus.PENDING, False),
+            (ContractStatus.CANCELLED, False),
+        ],
+    )
     def test_is_signed(self, draft_contract, status, expected):
         """Parametrized: is_signed returns correct value for every status."""
         draft_contract.status = status
         assert draft_contract.is_signed is expected
 
-    @pytest.mark.parametrize("status, expected", [
-        (ContractStatus.CANCELLED,         True),
-        (ContractStatus.DRAFT,             False),
-        (ContractStatus.PENDING,           False),
-        (ContractStatus.SIGNED,            False),
-        (ContractStatus.DEPOSIT_RECEIVED,  False),
-        (ContractStatus.PAID_IN_FULL,      False),
-    ])
+    @pytest.mark.parametrize(
+        "status, expected",
+        [
+            (ContractStatus.CANCELLED, True),
+            (ContractStatus.DRAFT, False),
+            (ContractStatus.PENDING, False),
+            (ContractStatus.SIGNED, False),
+            (ContractStatus.DEPOSIT_RECEIVED, False),
+            (ContractStatus.PAID_IN_FULL, False),
+        ],
+    )
     def test_is_cancelled(self, draft_contract, status, expected):
         """Parametrized: is_cancelled returns correct value for every status."""
         draft_contract.status = status
@@ -51,14 +56,17 @@ class TestContractIsDepositReceived:
     This is the gate that unlocks event creation.
     """
 
-    @pytest.mark.parametrize("status, expected", [
-        (ContractStatus.DEPOSIT_RECEIVED,  True),
-        (ContractStatus.PAID_IN_FULL,      True),
-        (ContractStatus.DRAFT,             False),
-        (ContractStatus.PENDING,           False),
-        (ContractStatus.SIGNED,            False),
-        (ContractStatus.CANCELLED,         False),
-    ])
+    @pytest.mark.parametrize(
+        "status, expected",
+        [
+            (ContractStatus.DEPOSIT_RECEIVED, True),
+            (ContractStatus.PAID_IN_FULL, True),
+            (ContractStatus.DRAFT, False),
+            (ContractStatus.PENDING, False),
+            (ContractStatus.SIGNED, False),
+            (ContractStatus.CANCELLED, False),
+        ],
+    )
     def test_is_deposit_received(self, draft_contract, status, expected):
         """Parametrized: is_deposit_received returns correct value for every status."""
         draft_contract.status = status
@@ -75,14 +83,17 @@ class TestContractIsFullyPaid:
     the balance directly.
     """
 
-    @pytest.mark.parametrize("status, expected", [
-        (ContractStatus.PAID_IN_FULL,      True),
-        (ContractStatus.DRAFT,             False),
-        (ContractStatus.PENDING,           False),
-        (ContractStatus.SIGNED,            False),
-        (ContractStatus.DEPOSIT_RECEIVED,  False),
-        (ContractStatus.CANCELLED,         False),
-    ])
+    @pytest.mark.parametrize(
+        "status, expected",
+        [
+            (ContractStatus.PAID_IN_FULL, True),
+            (ContractStatus.DRAFT, False),
+            (ContractStatus.PENDING, False),
+            (ContractStatus.SIGNED, False),
+            (ContractStatus.DEPOSIT_RECEIVED, False),
+            (ContractStatus.CANCELLED, False),
+        ],
+    )
     def test_is_fully_paid(self, draft_contract, status, expected):
         """Parametrized: is_fully_paid returns True only for PAID_IN_FULL status."""
         draft_contract.status = status

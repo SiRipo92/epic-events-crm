@@ -1,9 +1,10 @@
-from contextlib import contextmanager
 from collections.abc import Generator
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from config import settings
+from contextlib import contextmanager
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
+from config import settings
 
 engine = create_engine(settings.database_url, echo=False)
 
@@ -13,6 +14,7 @@ SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 # The Generator type hint tells the type checker what get_session() yields
 # (Session), what it accepts via send() (None), and what it returns (None).
 # Without this, IDEs lose track of the yielded type and warn incorrectly.
+
 
 @contextmanager
 def get_session() -> Generator[Session, None, None]:

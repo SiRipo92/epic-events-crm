@@ -11,11 +11,13 @@ preventing silent failures from misconfigured environments.
 
 import os
 from typing import Any
-from dotenv import load_dotenv
+
 import sentry_sdk
+from dotenv import load_dotenv
 from sentry_sdk.types import Event as SentryEvent
 
 load_dotenv()
+
 
 class Settings:
     """Application settings loaded from environment variables.
@@ -27,7 +29,9 @@ class Settings:
         EnvironmentError: If any required environment variable is
                           missing or empty at startup.
     """
+
     def __init__(self):
+        """Load and validate settings from environment variables."""
         self.database_url = self._require("DATABASE_URL")
         self.secret_key = self._require("SECRET_KEY")
         self.sentry_dsn = os.getenv("SENTRY_DSN", "")
@@ -56,6 +60,7 @@ class Settings:
 
 settings = Settings()
 
+
 def init_sentry() -> None:
     """Initialise Sentry SDK if a DSN is configured.
 
@@ -70,10 +75,7 @@ def init_sentry() -> None:
         )
 
 
-def _scrub_pii(
-    event: SentryEvent,
-    _hint: dict[str, Any]
-) -> SentryEvent | None:
+def _scrub_pii(event: SentryEvent, _hint: dict[str, Any]) -> SentryEvent | None:
     """Remove personally identifiable information before sending to Sentry.
 
     Scrubs request data from exception context to comply with RGPD.
