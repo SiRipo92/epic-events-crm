@@ -38,6 +38,17 @@ def _write_session_file(token: str) -> Path:
     session_path.write_text(token)
     os.chmod(session_path, 0o600)
 
+def _read_session_file() -> str | None:
+    """
+    Read the JWT token from session file.
+
+    Return None if the session file does not exist.
+    """
+    session_path = _get_session_path()
+    if not session_path.exists():
+        return None
+    return session_path.read_text().strip()
+
 def _delete_session_file() -> None:
     """Delete the session file if it exists."""
     session_path = _get_session_path()
