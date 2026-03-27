@@ -15,10 +15,10 @@ from decimal import Decimal
 import pytest
 
 from models.client import Client
-from models.role import Role
 from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
 from models.event import Event
+from models.role import Role
 
 
 # ── Factory fixtures ──────────────────────────────────────────────────────────
