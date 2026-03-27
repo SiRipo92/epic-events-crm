@@ -209,3 +209,54 @@ class TestLogin:
             result = login(session, c.email, "correctpassword")
 
         assert result == c
+
+    # ---------------------------
+    # Sad path
+    # ---------------------------
+
+    def test_wrong_password_raises(
+            self, make_collaborator, management_role
+    ):
+        """Wrong password raises AuthenticationError."""
+        c = make_collaborator(
+            role=management_role,
+            is_active=True,
+            must_change_password=False,
+        )
+        c.set_password("correctpassword")
+
+        session = MagicMock()
+        session.query.return_value.filter_by.return_value.first.return_value = c
+
+        with patch("services.auth_service._write_session_file"):
+            with pytest.raises(AuthenticationError):
+                login(session, c.email, "wrongpassword")
+
+    def test_unknown_email_raises(
+            self, make_collaborator, management_role
+    ):
+        """Unknown email raises AuthenticationError."""
+        session = MagicMock()
+        session.query.return_value.filter_by.return_value.first.return_value = None
+
+        with patch("services.auth_service._write_session_file"):
+            with pytest.raises(AuthenticationError):
+                login(session, "unknown@example.com", "anypassword")
+
+    def test_inactive_account_raises(
+            self, make_collaborator, management_role
+    ):
+        """Deactivated account raises AuthenticationError."""
+        c = make_collaborator(
+            role=management_role,
+            is_active=False,
+            must_change_password=False,
+        )
+        c.set_password("correctpassword")
+
+        session = MagicMock()
+        session.query.return_value.filter_by.return_value.first.return_value = c
+
+        with patch("services.auth_service._write_session_file"):
+            with pytest.raises(AuthenticationError, match="deactivated"):
+                login(session, c.email, "correctpassword")
