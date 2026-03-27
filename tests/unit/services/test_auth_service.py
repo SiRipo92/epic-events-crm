@@ -79,6 +79,10 @@ class TestDecodeToken:
 class TestChangePassword:
     """Tests for the change_password service function."""
 
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
     def test_correct_current_password_updates_hash(
         self, make_collaborator, management_role
     ):
@@ -90,3 +94,41 @@ class TestChangePassword:
         change_password(session, c, "oldpassword", "newpassword123")
 
         assert c.verify_password("newpassword123") is True
+
+    def test_must_change_password_cleared(
+            self, make_collaborator, management_role
+    ):
+        """Successful change sets must_change_password to False."""
+        c = make_collaborator(role=management_role, must_change_password=True)
+        c.set_password("oldpassword")
+        session = MagicMock()
+
+        change_password(session, c, "oldpassword", "newpassword123")
+
+        assert c.must_change_password is False
+
+    # ---------------------------
+    # Sad path
+    # ---------------------------
+
+    def test_wrong_current_password_raises(
+            self, make_collaborator, management_role
+    ):
+        """Wrong current password raises AuthenticationError."""
+        c = make_collaborator(role=management_role)
+        c.set_password("oldpassword")
+        session = MagicMock()
+
+        with pytest.raises(AuthenticationError):
+            change_password(session, c, "wrongpassword", "newpassword123")
+
+    def test_same_password_raises(
+            self, make_collaborator, management_role
+    ):
+        """New password identical to current raises ValidationError."""
+        c = make_collaborator(role=management_role)
+        c.set_password("samepassword")
+        session = MagicMock()
+
+        with pytest.raises(ValidationError):
+            change_password(session, c, "samepassword", "samepassword")
