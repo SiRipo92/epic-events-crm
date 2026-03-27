@@ -260,3 +260,21 @@ class TestLogin:
         with patch("services.auth_service._write_session_file"):
             with pytest.raises(AuthenticationError, match="deactivated"):
                 login(session, c.email, "correctpassword")
+
+    def test_must_change_password_raises(
+            self, make_collaborator, management_role
+    ):
+        """First-login collaborator raises MustChangePasswordError."""
+        c = make_collaborator(
+            role=management_role,
+            is_active=True,
+            must_change_password=True,
+        )
+        c.set_password("correctpassword")
+
+        session = MagicMock()
+        session.query.return_value.filter_by.return_value.first.return_value = c
+
+        with patch("services.auth_service._write_session_file"):
+            with pytest.raises(MustChangePasswordError):
+                login(session, c.email, "correctpassword")
