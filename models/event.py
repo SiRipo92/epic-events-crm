@@ -60,7 +60,7 @@ class Event(Base):
         String(100), nullable=True
     )
     location_country: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, default="France"
+        String(100), nullable=True, default="France", server_default="France"
     )
 
     attendees: Mapped[int] = mapped_column(
