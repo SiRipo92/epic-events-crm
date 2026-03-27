@@ -3,32 +3,21 @@ Client ORM model.
 
 Represents an external client of Epic Events — a company or individual
 who organises events through the agency. Each client is owned by exactly
-one Commercial collaborator who created their profile and tracks their
-lifecycle from initial prospect through to completed dossier.
+one Commercial collaborator who created their profile.
 
 Deletion policy:
     Clients can be hard-deleted (e.g. RGPD right to erasure). When a
     client is deleted, their contracts are retained for business and
     accounting records but client_id on those contracts is set to NULL.
     This preserves financial history while removing personal data.
-    Before deletion the client status should be set to INACTIVE.
 """
 
 from datetime import datetime
-from sqlalchemy import String, DateTime, Enum as SAEnum, func
+
+from sqlalchemy import String, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from models.base import Base
-import enum
-
-
-class ClientStatus(str, enum.Enum):
-    PROSPECT = "prospect"
-    IN_NEGOTIATION = "in_negotiation"
-    PENDING_SIGNATURE = "pending_signature"
-    ACTIVE = "active"
-    IN_SUPPORT = "in_support"
-    COMPLETED = "completed"
-    INACTIVE = "inactive"
 
 
 class Client(Base):
@@ -36,12 +25,13 @@ class Client(Base):
 
     A client is created by a Commercial collaborator and remains
     assigned to that collaborator via commercial_id. Only the owning
-    commercial can update a client's profile.
+    Commercial can update a client's profile.
 
-    The status field tracks the full client lifecycle, from initial
-    prospect through to completed dossier or inactive. This drives
-    Management's assignment workflow — showing which clients need a
-    commercial rep, which need support assigned, and which are closed.
+    Client lifecycle is not stored as a column. All lifecycle queries
+    (e.g. which clients need support assigned, which dossiers are closed)
+    are derived from the state of their contracts and events at the
+    service layer. This avoids synchronisation bugs between stored
+    status and actual contract/event state.
 
     Timestamps:
         created_at: Set automatically on insert via the database server.
@@ -50,9 +40,11 @@ class Client(Base):
 
     Relationships:
         commercial: The Collaborator responsible for this client.
-        contracts: All contracts associated with this client. When the
-                   client is deleted, contract.client_id is set to NULL
-                   rather than cascading the deletion.
+                    FK constraint added in Epic 2 once the collaborators
+                    table is stable.
+        contracts:  All contracts associated with this client. When the
+                    client is deleted, contract.client_id is set to NULL
+                    rather than cascading the deletion.
     """
 
     __tablename__ = "clients"
@@ -63,28 +55,29 @@ class Client(Base):
     email: Mapped[str] = mapped_column(String(150), unique=True, nullable=False)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     company_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False
-    )
-    updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime, nullable=True, onupdate=func.now()
-    )
 
-    # To update later
+    # To update later: add ForeignKey("collaborators.id") in Epic 2
     commercial_id: Mapped[int] = mapped_column(nullable=False)
 
-    status: Mapped[ClientStatus] = mapped_column(
-        SAEnum(ClientStatus),
-        default=ClientStatus.PROSPECT,
-        server_default="PROSPECT",
-        nullable=False
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        onupdate=func.now(),
     )
 
+    # ── Relationships ──────────────────────────────────────────────────────────
 
     contracts: Mapped[list["Contract"]] = relationship(
         back_populates="client",
-        passive_deletes=True
+        passive_deletes=True,
     )
+
+    # ── Computed properties ────────────────────────────────────────────────────
 
     @property
     def full_name(self) -> str:
@@ -97,10 +90,11 @@ class Client(Base):
 
     @property
     def full_name_formal(self) -> str:
-        """Return the client's name in formal format: LAST NAME, First name.
+        """Return the client's name in formal format.
 
         Returns:
-            str: Last name in uppercase followed by first name.
+            str: Last name in uppercase followed by first name,
+                 e.g. "DUPONT, Marie".
         """
         return f"{self.last_name.upper()}, {self.first_name}"
 
@@ -109,14 +103,13 @@ class Client(Base):
         """Return True if any of this client's events have a support member assigned.
 
         Traverses the client → contracts → event chain to check whether
-        a support collaborator is assigned to any active event. Always
-        reflects current data state — never stored as a column.
+        a support collaborator is currently assigned to any active event.
+        Always reflects current data state — never stored as a column.
 
         Returns:
             bool: True if at least one event has support_id set.
         """
         return any(
-            event.support_id is not None
+            contract.event is not None and contract.event.support_id is not None
             for contract in self.contracts
-            for event in ([] if contract.event is None else [contract.event])
         )

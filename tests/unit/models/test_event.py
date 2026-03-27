@@ -2,19 +2,17 @@
 Unit tests for the Event ORM model.
 
 Tests cover:
-    - has_support() domain method
-    - duration_hours() domain method
+    - has_support computed property
+    - duration_hours computed property
     - is_past computed property
 """
 
 import pytest
 from datetime import datetime
 
-from models.event import Event
-
 
 class TestEventHasSupport:
-    """Tests for the has_support() domain method.
+    """Tests for the has_support computed property.
 
     Happy path:  support_id is set.
     Sad path:    support_id is None.
@@ -22,15 +20,15 @@ class TestEventHasSupport:
 
     def test_has_support_when_assigned(self, event_with_support):
         """Happy path: event with support_id set returns True."""
-        assert event_with_support.has_support() is True
+        assert event_with_support.has_support is True
 
     def test_no_support_when_support_id_is_none(self, event_without_support):
         """Sad path: event with support_id None returns False."""
-        assert event_without_support.has_support() is False
+        assert event_without_support.has_support is False
 
 
 class TestEventDurationHours:
-    """Tests for the duration_hours() domain method.
+    """Tests for the duration_hours computed property.
 
     Happy path:  standard duration.
     Edge cases:  midnight crossing, zero duration, fractional hours.
@@ -46,7 +44,7 @@ class TestEventDurationHours:
         """Parametrized: duration_hours returns correct value for all scenarios."""
         event_without_support.start_date = start
         event_without_support.end_date = end
-        assert event_without_support.duration_hours() == expected
+        assert event_without_support.duration_hours == expected
 
 
 class TestEventIsPast:

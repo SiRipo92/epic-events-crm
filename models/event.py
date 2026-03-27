@@ -13,7 +13,7 @@ Deletion policy:
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import String, ForeignKey, Integer, Text, DateTime, Boolean, false
+from sqlalchemy import  Boolean, Integer, DateTime, false, ForeignKey, func, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from models.base import Base
 
@@ -47,8 +47,28 @@ class Event(Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     start_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    location: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    attendees: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Location fields that will be computed to build a string
+    # And allow for more efficient filtering
+    location_street: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
+    location_zip: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )
+    location_city: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
+    )
+    location_country: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, default="France", server_default="France"
+    )
+
+    attendees: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # To update later
@@ -58,17 +78,44 @@ class Event(Base):
         Boolean, default=False, server_default=false(), nullable=False
     )
 
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        onupdate=func.now(),
+    )
+
     contract: Mapped["Contract"] = relationship(back_populates="event")
 
+    @property
+    def location(self) -> str | None:
+        """Return the full formatted address assembled from individual fields.
 
+        Returns None if no location fields have been set.
+        Returns a partial address if only some fields are filled.
+
+        Example:
+            "34 rue de Albatross, 92000 Nanterre, France"
+        """
+        city_zip = " ".join(
+            p for p in [self.location_zip, self.location_city] if p
+        )
+        parts = [self.location_street, city_zip or None, self.location_country]
+        joined = ", ".join(p for p in parts if p)
+        return joined if joined else None
+
+    @property
     def has_support(self) -> bool:
-        """Return True if a support collaborator is assigned to this event.
-
-        Returns:
-            bool: True if support_id is set, False if the event is unassigned.
+        """
+        Return True if a support collaborator is assigned to this event.
         """
         return self.support_id is not None
 
+    @property
     def duration_hours(self) -> float:
         """Return the duration of this event in hours.
 
