@@ -16,7 +16,7 @@ from pathlib import Path
 import jwt
 
 from config import settings
-from exceptions import AuthenticationError, MustChangePasswordError, ValidationError
+from exceptions import AuthenticationError, ValidationError
 from models.collaborator import Collaborator
 
 
@@ -37,6 +37,12 @@ def _write_session_file(token: str) -> Path:
     session_path.parent.mkdir(parents=True, exist_ok=True)
     session_path.write_text(token)
     os.chmod(session_path, 0o600)
+
+def _delete_session_file() -> None:
+    """Delete the session file if it exists."""
+    session_path = _get_session_path()
+    if session_path.exists():
+        session_path.unlink()
 
 # ── Token helpers ─────────────────────────────────────────────────────────────
 
@@ -79,12 +85,12 @@ def _decode_token(token: str) -> dict:
 # ── Public interface ──────────────────────────────────────────────────────────
 
 def login(session, email: str, password: str):
-    """
-    Authenticate a collaborator and create a session token.
+    """Authenticate a collaborator and create a session token.
 
-    Checks credentials, active status, and writes a JWT to the session
-    file. Raises MustChangePasswordError if the collaborator must change
-    their password before accessing the CRM.
+    Checks credentials and active status, then writes a JWT to the
+    session file. Returns the collaborator regardless of
+    must_change_password — the caller is responsible for checking
+    that flag and routing to the password change screen if needed.
 
     Args:
         session: SQLAlchemy database session.
@@ -97,7 +103,6 @@ def login(session, email: str, password: str):
     Raises:
         AuthenticationError: If credentials are invalid or account
                              is deactivated.
-        MustChangePasswordError: If must_change_password is True.
     """
     # Step 1 — look up by email
     collaborator = session.query(Collaborator).filter_by(email=email).first()
@@ -113,13 +118,18 @@ def login(session, email: str, password: str):
     # Step 4 — generate and store token
     _write_session_file(_generate_token(collaborator))
 
-    # Step 5 — check first-login gate
-    if collaborator.must_change_password:
-        raise MustChangePasswordError(
-            "You must change your password before continuing."
-        )
-
+    # Step 5 — return collaborator regardless of must_change_password
+    # The caller checks collaborator.must_change_password and routes accordingly
     return collaborator
+
+def logout() -> None:
+    """
+    End the current session by deleting the session file.
+
+    Safe to call even if no session exists.
+    """
+    pass
+
 
 def change_password(session, collaborator, current_password: str, new_password: str):
     """
