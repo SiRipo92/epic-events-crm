@@ -12,7 +12,7 @@ Tests are organised by function:
 import jwt
 
 from config import settings
-from services.auth_service import _generate_token
+from services.auth_service import _generate_token, _decode_token
 
 class TestGenerateToken:
     """Tests for JWT token generation."""
@@ -34,3 +34,13 @@ class TestGenerateToken:
         token = _generate_token(management_user)
         payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
         assert "exp" in payload
+
+
+class TestDecodeToken:
+    """Tests for JWT token decoding."""
+
+    def test_valid_token_returns_payload(self, management_user):
+        """Valid token decodes to correct payload."""
+        token = _generate_token(management_user)
+        payload = _decode_token(token)
+        assert payload["user_id"] == management_user.id
