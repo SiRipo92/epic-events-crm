@@ -107,6 +107,9 @@ def login(session, email: str, password: str):
         raise AuthenticationError("Invalid credentials. Please try again.")
 
     # Step 3 — check active status
+    if not collaborator.is_active:
+        raise AuthenticationError("Account deactivated. Contact management.")
+
     # Step 4 — generate and store token
     _write_session_file(_generate_token(collaborator))
 
