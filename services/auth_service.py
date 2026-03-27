@@ -141,6 +141,42 @@ def logout() -> None:
     """
     _delete_session_file()
 
+def get_session_user(session):
+    """
+    Return the currently authenticated collaborator from the session token.
+
+    Reads the session file, validates the JWT, and loads the collaborator
+    from the database. Returns None if no valid session exists.
+
+    Args:
+        session: SQLAlchemy database session.
+
+    Returns:
+        Collaborator | None: The authenticated collaborator, or None if
+                             no valid session exists.
+
+    Raises:
+        AuthenticationError: If the token is expired or invalid.
+    """
+    token = _read_session_file()
+    if not token:
+        return None
+
+    payload = _decode_token(token)
+
+    collaborator = session.get(Collaborator, payload["user_id"])
+
+    if not collaborator:
+        _delete_session_file()
+        raise AuthenticationError("Session user no longer exists.")
+
+    if not collaborator.is_active:
+        _delete_session_file()
+        raise AuthenticationError(
+            "Account deactivated. Contact management."
+        )
+
+    return collaborator
 
 def change_password(session, collaborator, current_password: str, new_password: str):
     """
