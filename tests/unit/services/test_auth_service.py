@@ -13,7 +13,7 @@ import jwt
 import pytest
 from datetime import timedelta, timezone
 import datetime as dt
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from pathlib import Path
 
 from config import settings
@@ -22,7 +22,8 @@ from services.auth_service import (
     _generate_token,
     _decode_token,
     change_password,
-    _get_session_path
+    _get_session_path,
+    _write_session_file
 )
 
 class TestGenerateToken:
@@ -155,3 +156,29 @@ class TestGetSessionPath:
         """Returns the path defined in settings."""
         result = _get_session_path()
         assert result == settings.session_file
+
+
+class TestWriteSessionFile:
+    """Tests for session file writing."""
+
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
+    def test_session_file_is_created(self, tmp_path):
+        """Token is written to the session file."""
+        with patch("services.auth_service.settings") as mock_settings:
+            mock_settings.session_file = tmp_path / "session"
+            _write_session_file("test.token.value")
+
+        assert (tmp_path / "session").exists()
+
+    def test_session_file_contains_token(self, tmp_path):
+        """Session file content matches the written token."""
+        from services.auth_service import _write_session_file
+
+        with patch("services.auth_service.settings") as mock_settings:
+            mock_settings.session_file = tmp_path / "session"
+            _write_session_file("test.token.value")
+
+        assert (tmp_path / "session").read_text() == "test.token.value"
