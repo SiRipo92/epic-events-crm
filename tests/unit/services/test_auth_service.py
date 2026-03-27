@@ -261,6 +261,10 @@ class TestLogin:
             with pytest.raises(AuthenticationError, match="deactivated"):
                 login(session, c.email, "correctpassword")
 
+    # ---------------------------
+    # Edge cases
+    # ---------------------------
+
     def test_must_change_password_raises(
             self, make_collaborator, management_role
     ):
