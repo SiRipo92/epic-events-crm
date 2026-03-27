@@ -9,6 +9,7 @@ Session tokens are JWT tokens stored at ~/.epic_events/session
 with chmod 600. They expire after 8 hours.
 """
 
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -23,6 +24,18 @@ from exceptions import AuthenticationError, ValidationError
 def _get_session_path() -> Path:
     """Return the path to the session token file."""
     return settings.session_file
+
+def _write_session_file(token: str) -> Path:
+    """
+    Write a JWT token to the session file with restricted permissions.
+
+    Creates the parent directory if it does not exist.
+    Sets file permissions to 600 (owner read/write only).
+    """
+    session_path = _get_session_path()
+    session_path.parent.mkdir(parents=True, exist_ok=True)
+    session_path.write_text(token)
+    os.chmod(session_path, 0o600)
 
 # ── Token helpers ─────────────────────────────────────────────────────────────
 
@@ -90,4 +103,3 @@ def change_password(session, collaborator, current_password: str, new_password: 
     collaborator.set_password(new_password)
     collaborator.must_change_password = False
     session.commit()
-
