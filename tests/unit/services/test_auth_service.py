@@ -13,10 +13,11 @@ import jwt
 import pytest
 from datetime import timedelta, timezone
 import datetime as dt
+from unittest.mock import MagicMock
 
 from config import settings
-from exceptions import AuthenticationError
-from services.auth_service import _generate_token, _decode_token
+from exceptions import AuthenticationError, ValidationError
+from services.auth_service import _generate_token, _decode_token, change_password
 
 class TestGenerateToken:
     """Tests for JWT token generation."""
@@ -73,3 +74,19 @@ class TestDecodeToken:
         """Tampered or malformed token raises AuthenticationError."""
         with pytest.raises(AuthenticationError, match="Invalid"):
             _decode_token("not.a.valid.token")
+
+
+class TestChangePassword:
+    """Tests for the change_password service function."""
+
+    def test_correct_current_password_updates_hash(
+        self, make_collaborator, management_role
+    ):
+        """Valid password change updates the stored password hash."""
+        c = make_collaborator(role=management_role)
+        c.set_password("oldpassword")
+        session = MagicMock()
+
+        change_password(session, c, "oldpassword", "newpassword123")
+
+        assert c.verify_password("newpassword123") is True
