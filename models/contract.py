@@ -18,12 +18,13 @@ Deletion policy:
     deletion while retaining the financial record.
 """
 
+import enum
 from datetime import datetime
 from decimal import Decimal
 
-import enum
-
-from sqlalchemy import Boolean, DateTime, Enum as SAEnum, false, func, ForeignKey, Numeric
+from sqlalchemy import Boolean, DateTime
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy import ForeignKey, Numeric, false, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base
@@ -138,12 +139,12 @@ class Contract(Base):
 
     # ── Relationships ──────────────────────────────────────────────────────────
 
-    client: Mapped["Client | None"] = relationship(
+    client: Mapped["Client | None"] = relationship(  # noqa: F821
         back_populates="contracts",
         passive_deletes=True,
     )
 
-    event: Mapped["Event | None"] = relationship(
+    event: Mapped["Event | None"] = relationship(  # noqa: F821
         back_populates="contract",
         uselist=False,
     )

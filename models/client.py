@@ -14,7 +14,7 @@ Deletion policy:
 
 from datetime import datetime
 
-from sqlalchemy import String, DateTime, func
+from sqlalchemy import DateTime, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base
@@ -72,7 +72,7 @@ class Client(Base):
 
     # ── Relationships ──────────────────────────────────────────────────────────
 
-    contracts: Mapped[list["Contract"]] = relationship(
+    contracts: Mapped[list["Contract"]] = relationship(  # noqa: F821
         back_populates="client",
         passive_deletes=True,
     )
