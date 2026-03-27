@@ -157,7 +157,7 @@ class TestGetSessionPath:
         result = _get_session_path()
         assert isinstance(result, Path)
 
-    def test_returns_correct_path(self):
+    def test_returns_correct_path(self, session_file):
         """Returns the path defined in settings."""
         assert _get_session_path() == settings.session_file
 
@@ -169,48 +169,20 @@ class TestWriteSessionFile:
     # Happy path
     # ---------------------------
 
-    def test_session_file_is_created(self, tmp_path, monkeypatch):
+    def test_session_file_is_created(self, session_file):
         """Token is written to the session file."""
-        # Arrange
-        session_file = tmp_path / "session"
-        monkeypatch.setattr(
-            "services.auth_service.settings.session_file",
-            session_file
-        )
-
-        # Act
         _write_session_file("test.token.value")
-
-        # Assert
         assert session_file.exists()
 
-    def test_session_file_contains_token(self, tmp_path, monkeypatch):
+    def test_session_file_contains_token(self, session_file):
         """Session file content matches the written token."""
-
-        session_file = tmp_path / "session"
-        monkeypatch.setattr(
-            "services.auth_service.settings.session_file",
-            session_file
-        )
-
         _write_session_file("test.token.value")
-
         assert session_file.read_text() == "test.token.value"
 
-    def test_session_file_permissions_are_restricted(self, tmp_path, monkeypatch):
+    def test_session_file_permissions_are_restricted(self, session_file):
         """Session file should have chmod 600 permissions."""
-
-        session_file = tmp_path / "session"
-        monkeypatch.setattr(
-            "services.auth_service.settings.session_file",
-            session_file
-        )
-
         _write_session_file("test.token.value")
-
-        # Extract permission bits
         file_mode = session_file.stat().st_mode & 0o777
-
         assert file_mode == 0o600
 
 class TestLogin:
@@ -293,20 +265,10 @@ class TestLogin:
 class TestDeleteSessionFile:
     """Tests for session file deletion."""
 
-    def test_session_file_is_deleted(self, tmp_path, monkeypatch):
+    def test_session_file_is_deleted(self, session_file):
         """Session file should be deleted if it exists."""
-
-        session_file = tmp_path / "session"
-
-        monkeypatch.setattr(
-            "services.auth_service.settings.session_file",
-            session_file
-        )
-
         session_file.write_text("token")
-
         _delete_session_file()
-
         assert not session_file.exists()
 
 class TestLogout():
@@ -316,45 +278,20 @@ class TestLogout():
     # Happy path
     # ---------------------------
 
-    def test_logout_deletes_session_file(self, tmp_path, monkeypatch):
+    def test_logout_deletes_session_file(self, session_file):
         """Logout should delete the session file if it exists."""
-
-        # Arrange
-        session_file = tmp_path / "session"
-
-        monkeypatch.setattr(
-            "services.auth_service.settings.session_file",
-            session_file
-        )
-
-        # Create a fake session file
         session_file.write_text("fake-token")
-        assert session_file.exists()  # sanity check
-
-        # Act
+        assert session_file.exists()
         logout()
-
-        # Assert — SHOULD FAIL initially
         assert not session_file.exists()
 
     # ---------------------------
     # Sad path
     # ---------------------------
 
-    def test_logout_no_error_if_no_session(self, tmp_path, monkeypatch):
+    def test_logout_no_error_if_no_session(self, session_file):
         """Logout should not raise if no session file exists."""
-
-        session_file = tmp_path / "session"
-
-        monkeypatch.setattr(
-            "services.auth_service.settings.session_file",
-            session_file
-        )
-
-        # Act (should not raise)
         logout()
-
-        # Assert
         assert not session_file.exists()
 
 
@@ -365,111 +302,70 @@ class TestReadSessionFile:
     # Happy path
     # ---------------------------
 
-    def test_returns_token_if_file_exists(self, tmp_path, monkeypatch):
+    def test_returns_token_if_file_exists(self, session_file):
         """Should return the token stored in the session file."""
-
-        session_file = tmp_path / "session"
-        monkeypatch.setattr(
-            "services.auth_service.settings.session_file",
-            session_file
-        )
-
         session_file.write_text("test.token.value")
-
         result = _read_session_file()
-
         assert result == "test.token.value"
 
-    def test_strips_whitespace_from_token(self, tmp_path, monkeypatch):
+    def test_strips_whitespace_from_token(self, session_file):
         """Should strip whitespace and newlines from token."""
-
-        session_file = tmp_path / "session"
-        monkeypatch.setattr(
-            "services.auth_service.settings.session_file",
-            session_file
-        )
-
         session_file.write_text("  test.token.value\n")
-
         result = _read_session_file()
-
         assert result == "test.token.value"
 
     # ---------------------------
     # Sad path
     # ---------------------------
 
-    def test_returns_none_if_file_does_not_exist(self, tmp_path, monkeypatch):
+    def test_returns_none_if_file_does_not_exist(self, session_file):
         """Should return None when session file is missing."""
-
-        # Arrange
-        session_file = tmp_path / "session"
-        monkeypatch.setattr(
-            "services.auth_service.settings.session_file",
-            session_file
-        )
-
-        # Act
         result = _read_session_file()
-
-        # Assert
         assert result is None
 
 
 class TestGetSessionUser:
     """Tests for retrieving the current session user."""
 
-
     # ---------------------------
     # Happy path
     # ---------------------------
 
-    def test_returns_collaborator_if_token_valid(self, monkeypatch):
+    def test_returns_collaborator_if_token_valid(
+            self,
+            mock_valid_token,
+            mock_payload
+    ):
         """Should return collaborator when token and user are valid."""
-
-        fake_payload = {"user_id": 1}
-
         class FakeCollaborator:
             is_active = True
+
 
         class FakeSession:
             def get(self, model, user_id):
                 return FakeCollaborator()
 
-        monkeypatch.setattr(
-            "services.auth_service._read_session_file",
-            lambda: "valid.token"
-        )
-
-        monkeypatch.setattr(
-            "services.auth_service._decode_token",
-            lambda token: fake_payload
-        )
 
         result = get_session_user(session=FakeSession())
-
         assert isinstance(result, FakeCollaborator)
 
     # ---------------------------
     # Sad path
     # ---------------------------
 
-    def test_returns_none_if_no_token(self, monkeypatch):
+    def test_returns_none_if_no_token(self, mock_no_token):
         """Should return None when no session token exists."""
 
-        monkeypatch.setattr(
-            "services.auth_service._read_session_file",
-            lambda: None
-        )
-
         result = get_session_user(session=None)
-
         assert result is None
 
-    def test_raises_if_user_not_found(self, monkeypatch):
+    def test_raises_if_user_not_found(
+            self,
+            mock_valid_token,
+            mock_payload,
+            monkeypatch
+    ):
         """Should delete session and raise if user does not exist."""
-
-        fake_payload = {"user_id": 1}
 
         class FakeSession:
             def get(self, model, user_id):
@@ -481,16 +377,6 @@ class TestGetSessionUser:
             delete_called["called"] = True
 
         monkeypatch.setattr(
-            "services.auth_service._read_session_file",
-            lambda: "valid.token"
-        )
-
-        monkeypatch.setattr(
-            "services.auth_service._decode_token",
-            lambda token: fake_payload
-        )
-
-        monkeypatch.setattr(
             "services.auth_service._delete_session_file",
             fake_delete
         )
@@ -500,10 +386,13 @@ class TestGetSessionUser:
 
         assert delete_called["called"] is True
 
-    def test_raises_if_user_inactive(self, monkeypatch):
+    def test_raises_if_user_inactive(
+            self,
+            mock_valid_token,
+            mock_payload,
+            monkeypatch
+    ):
         """Should delete session and raise if user is inactive."""
-
-        fake_payload = {"user_id": 1}
 
         class FakeCollaborator:
             is_active = False
@@ -518,16 +407,6 @@ class TestGetSessionUser:
             delete_called["called"] = True
 
         monkeypatch.setattr(
-            "services.auth_service._read_session_file",
-            lambda: "valid.token"
-        )
-
-        monkeypatch.setattr(
-            "services.auth_service._decode_token",
-            lambda token: fake_payload
-        )
-
-        monkeypatch.setattr(
             "services.auth_service._delete_session_file",
             fake_delete
         )
@@ -537,16 +416,11 @@ class TestGetSessionUser:
 
         assert delete_called["called"] is True
 
-    def test_raises_if_token_invalid(self, monkeypatch):
+    def test_raises_if_token_invalid(self, mock_valid_token, monkeypatch):
         """Should raise AuthenticationError if token is invalid."""
 
         def fake_decode(token):
             raise AuthenticationError("Invalid token")
-
-        monkeypatch.setattr(
-            "services.auth_service._read_session_file",
-            lambda: "invalid.token"
-        )
 
         monkeypatch.setattr(
             "services.auth_service._decode_token",
