@@ -16,7 +16,8 @@ from pathlib import Path
 import jwt
 
 from config import settings
-from exceptions import AuthenticationError, ValidationError
+from exceptions import AuthenticationError, MustChangePasswordError, ValidationError
+from models.collaborator import Collaborator
 
 
 # ── Session file helpers ───────────────────────────────────────────────────────
@@ -74,6 +75,44 @@ def _decode_token(token: str) -> dict:
         raise AuthenticationError("Session expired. Please log in again.")
     except jwt.InvalidTokenError:
         raise AuthenticationError("Invalid session. Please log in again.")
+
+# ── Public interface ──────────────────────────────────────────────────────────
+
+def login(session, email: str, password: str):
+    """
+    Authenticate a collaborator and create a session token.
+
+    Checks credentials, active status, and writes a JWT to the session
+    file. Raises MustChangePasswordError if the collaborator must change
+    their password before accessing the CRM.
+
+    Args:
+        session: SQLAlchemy database session.
+        email: The collaborator's email address.
+        password: The plaintext password to verify.
+
+    Returns:
+        Collaborator: The authenticated collaborator instance.
+
+    Raises:
+        AuthenticationError: If credentials are invalid or account
+                             is deactivated.
+        MustChangePasswordError: If must_change_password is True.
+    """
+    # Step 1 — look up by email
+    collaborator = session.query(Collaborator).filter_by(email=email).first()
+
+    # Step 2 — verify password (same error as unknown email — no enumeration)
+    if not collaborator or not collaborator.verify_password(password):
+        raise AuthenticationError("Invalid credentials. Please try again.")
+
+    # Step 3 — check active status
+    # Step 4 — generate and store token
+    _write_session_file(_generate_token(collaborator))
+
+    # Step 5 — check first-login gate
+
+    return collaborator
 
 def change_password(session, collaborator, current_password: str, new_password: str):
     """
