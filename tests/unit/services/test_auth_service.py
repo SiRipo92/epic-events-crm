@@ -10,8 +10,12 @@ Tests are organised by function:
 """
 
 import jwt
+import pytest
+from datetime import timedelta, timezone
+import datetime as dt
 
 from config import settings
+from exceptions import AuthenticationError
 from services.auth_service import _generate_token, _decode_token
 
 class TestGenerateToken:
@@ -39,8 +43,33 @@ class TestGenerateToken:
 class TestDecodeToken:
     """Tests for JWT token decoding."""
 
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
     def test_valid_token_returns_payload(self, management_user):
         """Valid token decodes to correct payload."""
         token = _generate_token(management_user)
         payload = _decode_token(token)
         assert payload["user_id"] == management_user.id
+
+    # ---------------------------
+    # Sad path
+    # ---------------------------
+
+    def test_expired_token_raises(self, management_user):
+        """Expired token raises AuthenticationError."""
+        payload = {
+            "user_id": management_user.id,
+            "role": "MANAGEMENT",
+            "exp": dt.datetime.now(timezone.utc) - timedelta(hours=1),
+        }
+        token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
+
+        with pytest.raises(AuthenticationError, match="expired"):
+            _decode_token(token)
+
+    def test_invalid_token_raises(self):
+        """Tampered or malformed token raises AuthenticationError."""
+        with pytest.raises(AuthenticationError, match="Invalid"):
+            _decode_token("not.a.valid.token")
