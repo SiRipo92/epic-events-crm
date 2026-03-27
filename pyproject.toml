@@ -15,5 +15,23 @@ profile = "black"
 line_length = 88
 skip = [".venv", "migrations"]
 
-[tool.flake8]
-# flake8 doesn't read pyproject.toml natively — use setup.cfg instead
+[tool.coverage.run]
+source = ["."]
+omit = [
+    ".venv/*",
+    "migrations/*",
+    "tests/*",
+    "main.py",
+    "config.py",
+    "db/session.py",
+    "cli/app.py",
+    "views/messages.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "pass",
+]
+show_missing = true

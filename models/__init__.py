@@ -11,7 +11,17 @@ Usage:
 
 from models.base import Base
 from models.client import Client
-from models.contract import Contract
+from models.collaborator import Collaborator
+from models.contract import Contract, ContractStatus
 from models.event import Event
+from models.role import Role
 
-__all__ = ["Base", "Client", "Contract", "Event"]
+__all__ = [
+    "Base",
+    "Role",
+    "Collaborator",
+    "Client",
+    "Contract",
+    "ContractStatus",
+    "Event",
+]

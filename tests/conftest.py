@@ -15,8 +15,10 @@ from decimal import Decimal
 import pytest
 
 from models.client import Client
+from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
 from models.event import Event
+from models.role import Role
 
 
 # ── Factory fixtures ──────────────────────────────────────────────────────────
@@ -289,4 +291,156 @@ def future_event(make_event):
         title="Upcoming Gala",
         start_date=datetime.now(timezone.utc) + timedelta(days=1),
         end_date=datetime.now(timezone.utc) + timedelta(days=2),
+    )
+
+
+# ── Named role fixtures ───────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def make_role():
+    """Build and return Role instances."""
+
+    def _factory(
+        id: int = 1,
+        name: str = "MANAGEMENT",
+    ) -> Role:
+        r = Role()
+        r.id = id
+        r.name = name
+        return r
+
+    return _factory
+
+
+@pytest.fixture
+def management_role(make_role):
+    """Return a MANAGEMENT role instance."""
+    return make_role(id=1, name="MANAGEMENT")
+
+
+@pytest.fixture
+def commercial_role(make_role):
+    """Return a COMMERCIAL role instance."""
+    return make_role(id=2, name="COMMERCIAL")
+
+
+@pytest.fixture
+def support_role(make_role):
+    """Return a SUPPORT role instance."""
+    return make_role(id=3, name="SUPPORT")
+
+
+# ── Named collaborator fixtures ───────────────────────────────────────────────
+
+
+@pytest.fixture
+def make_collaborator():
+    """Build and return Collaborator instances."""
+
+    def _factory(
+        id: int = 1,
+        employee_number: str = "EMP-001",
+        first_name: str = "Jean",
+        last_name: str = "Durand",
+        email: str = "jean.durand@epicevents.com",
+        phone: str | None = None,
+        role_id: int = 1,
+        role: Role | None = None,
+        is_active: bool = True,
+        must_change_password: bool = True,
+    ) -> Collaborator:
+        c = Collaborator()
+        c.id = id
+        c.employee_number = employee_number
+        c.first_name = first_name
+        c.last_name = last_name
+        c.email = email
+        c.phone = phone
+        c.role_id = role_id
+        c.is_active = is_active
+        c.must_change_password = must_change_password
+        c.password_hash = ""
+        if role is not None:
+            c.role = role
+        return c
+
+    return _factory
+
+
+@pytest.fixture
+def management_user(make_collaborator, management_role):
+    """Return an active Management collaborator."""
+    return make_collaborator(
+        id=1,
+        employee_number="EMP-001",
+        first_name="Alice",
+        last_name="Martin",
+        email="alice.martin@epicevents.com",
+        role_id=1,
+        role=management_role,
+        is_active=True,
+        must_change_password=False,
+    )
+
+
+@pytest.fixture
+def commercial_user(make_collaborator, commercial_role):
+    """Return an active Commercial collaborator."""
+    return make_collaborator(
+        id=2,
+        employee_number="EMP-002",
+        first_name="Bob",
+        last_name="Dupont",
+        email="bob.dupont@epicevents.com",
+        role_id=2,
+        role=commercial_role,
+        is_active=True,
+        must_change_password=False,
+    )
+
+
+@pytest.fixture
+def support_user(make_collaborator, support_role):
+    """Return an active Support collaborator."""
+    return make_collaborator(
+        id=3,
+        employee_number="EMP-003",
+        first_name="Clara",
+        last_name="Petit",
+        email="clara.petit@epicevents.com",
+        role_id=3,
+        role=support_role,
+        is_active=True,
+        must_change_password=False,
+    )
+
+
+@pytest.fixture
+def inactive_user(make_collaborator, management_role):
+    """Return a deactivated collaborator."""
+    return make_collaborator(
+        id=4,
+        employee_number="EMP-004",
+        first_name="Dave",
+        last_name="Leblanc",
+        email="dave.leblanc@epicevents.com",
+        role=management_role,
+        is_active=False,
+        must_change_password=False,
+    )
+
+
+@pytest.fixture
+def first_login_user(make_collaborator, commercial_role):
+    """Return a collaborator who must change their password on first login."""
+    return make_collaborator(
+        id=5,
+        employee_number="EMP-005",
+        first_name="Eve",
+        last_name="Bernard",
+        email="eve.bernard@epicevents.com",
+        role=commercial_role,
+        is_active=True,
+        must_change_password=True,
     )

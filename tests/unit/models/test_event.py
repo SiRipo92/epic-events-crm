@@ -65,3 +65,36 @@ class TestEventIsPast:
     def test_future_event_is_not_past(self, future_event):
         """Sad path: event ending tomorrow returns False."""
         assert future_event.is_past is False
+
+
+class TestEventLocation:
+    """Tests for the location computed property."""
+
+    def test_full_address(self, make_event):
+        """Return formatted full address from all four fields."""
+        e = make_event(
+            location_street="34 rue de Albatross",
+            location_zip="92000",
+            location_city="Nanterre",
+            location_country="France",
+        )
+        assert e.location == "34 rue de Albatross, 92000 Nanterre, France"
+
+    def test_partial_address_no_street(self, make_event):
+        """Return partial address when street is missing."""
+        e = make_event(
+            location_zip="92000",
+            location_city="Nanterre",
+            location_country="France",
+        )
+        assert e.location == "92000 Nanterre, France"
+
+    def test_city_only(self, make_event):
+        """Return city name alone when only city is set."""
+        e = make_event(location_city="Paris")
+        assert e.location == "Paris"
+
+    def test_no_location_returns_none(self, make_event):
+        """Return None when no location fields are set."""
+        e = make_event()
+        assert e.location is None
