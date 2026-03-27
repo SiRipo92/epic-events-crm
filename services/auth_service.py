@@ -128,7 +128,7 @@ def logout() -> None:
 
     Safe to call even if no session exists.
     """
-    pass
+    _delete_session_file()
 
 
 def change_password(session, collaborator, current_password: str, new_password: str):
