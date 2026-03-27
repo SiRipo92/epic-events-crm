@@ -27,6 +27,7 @@ from services.auth_service import (
     login,
     _delete_session_file,
     logout,
+    _read_session_file
 )
 
 class TestGenerateToken:
@@ -354,3 +355,61 @@ class TestLogout():
 
         # Assert
         assert not session_file.exists()
+
+
+class TestReadSessionFile:
+    """Tests for the reading session file function."""
+
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
+    def test_returns_token_if_file_exists(self, tmp_path, monkeypatch):
+        """Should return the token stored in the session file."""
+
+        session_file = tmp_path / "session"
+        monkeypatch.setattr(
+            "services.auth_service.settings.session_file",
+            session_file
+        )
+
+        session_file.write_text("test.token.value")
+
+        result = _read_session_file()
+
+        assert result == "test.token.value"
+
+    def test_strips_whitespace_from_token(self, tmp_path, monkeypatch):
+        """Should strip whitespace and newlines from token."""
+
+        session_file = tmp_path / "session"
+        monkeypatch.setattr(
+            "services.auth_service.settings.session_file",
+            session_file
+        )
+
+        session_file.write_text("  test.token.value\n")
+
+        result = _read_session_file()
+
+        assert result == "test.token.value"
+
+    # ---------------------------
+    # Sad path
+    # ---------------------------
+
+    def test_returns_none_if_file_does_not_exist(self, tmp_path, monkeypatch):
+        """Should return None when session file is missing."""
+
+        # Arrange
+        session_file = tmp_path / "session"
+        monkeypatch.setattr(
+            "services.auth_service.settings.session_file",
+            session_file
+        )
+
+        # Act
+        result = _read_session_file()
+
+        # Assert
+        assert result is None
