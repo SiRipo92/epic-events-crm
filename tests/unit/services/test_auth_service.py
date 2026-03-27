@@ -26,6 +26,7 @@ from services.auth_service import (
     _write_session_file,
     login,
     _delete_session_file,
+    logout,
 )
 
 class TestGenerateToken:
@@ -304,4 +305,52 @@ class TestDeleteSessionFile:
 
         _delete_session_file()
 
+        assert not session_file.exists()
+
+class TestLogout():
+    """Tests for the logout service function."""
+
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
+    def test_logout_deletes_session_file(self, tmp_path, monkeypatch):
+        """Logout should delete the session file if it exists."""
+
+        # Arrange
+        session_file = tmp_path / "session"
+
+        monkeypatch.setattr(
+            "services.auth_service.settings.session_file",
+            session_file
+        )
+
+        # Create a fake session file
+        session_file.write_text("fake-token")
+        assert session_file.exists()  # sanity check
+
+        # Act
+        logout()
+
+        # Assert — SHOULD FAIL initially
+        assert not session_file.exists()
+
+    # ---------------------------
+    # Sad path
+    # ---------------------------
+
+    def test_logout_no_error_if_no_session(self, tmp_path, monkeypatch):
+        """Logout should not raise if no session file exists."""
+
+        session_file = tmp_path / "session"
+
+        monkeypatch.setattr(
+            "services.auth_service.settings.session_file",
+            session_file
+        )
+
+        # Act (should not raise)
+        logout()
+
+        # Assert
         assert not session_file.exists()
