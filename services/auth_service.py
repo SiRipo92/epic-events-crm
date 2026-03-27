@@ -114,6 +114,10 @@ def login(session, email: str, password: str):
     _write_session_file(_generate_token(collaborator))
 
     # Step 5 — check first-login gate
+    if collaborator.must_change_password:
+        raise MustChangePasswordError(
+            "You must change your password before continuing."
+        )
 
     return collaborator
 
