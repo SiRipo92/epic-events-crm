@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 
 from config import settings
-from exceptions import AuthenticationError
+from exceptions import AuthenticationError, ValidationError
 
 # ── Token helpers ─────────────────────────────────────────────────────────────
 
@@ -53,3 +53,32 @@ def _decode_token(token: str) -> dict:
         raise AuthenticationError("Session expired. Please log in again.")
     except jwt.InvalidTokenError:
         raise AuthenticationError("Invalid session. Please log in again.")
+
+def change_password(session, collaborator, current_password: str, new_password: str):
+    """
+    Change a collaborator's password.
+
+    Verifies the current password, ensures the new one differs, hashes
+    and saves the new password, and clears must_change_password.
+
+    Args:
+        session: SQLAlchemy database session.
+        collaborator: The Collaborator whose password is being changed.
+        current_password: The current plaintext password to verify.
+        new_password: The new plaintext password to set.
+
+    Raises:
+        AuthenticationError: If the current password is wrong.
+        ValidationError: If the new password matches the current one.
+    """
+    if not collaborator.verify_password(current_password):
+        raise AuthenticationError("Current password is incorrect.")
+
+    if collaborator.verify_password(new_password):
+        raise ValidationError(
+            "New password must differ from your current password."
+        )
+
+    collaborator.set_password(new_password)
+    collaborator.must_change_password = False
+    session.commit()
