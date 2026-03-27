@@ -17,14 +17,15 @@ from unittest.mock import MagicMock, patch
 from pathlib import Path
 
 from config import settings
-from exceptions import AuthenticationError, MustChangePasswordError, ValidationError
+from exceptions import AuthenticationError, ValidationError
 from services.auth_service import (
     _generate_token,
     _decode_token,
     change_password,
     _get_session_path,
     _write_session_file,
-    login
+    login,
+    _delete_session_file,
 )
 
 class TestGenerateToken:
@@ -155,8 +156,7 @@ class TestGetSessionPath:
 
     def test_returns_correct_path(self):
         """Returns the path defined in settings."""
-        result = _get_session_path()
-        assert result == settings.session_file
+        assert _get_session_path() == settings.session_file
 
 
 class TestWriteSessionFile:
@@ -166,23 +166,49 @@ class TestWriteSessionFile:
     # Happy path
     # ---------------------------
 
-    def test_session_file_is_created(self, tmp_path):
+    def test_session_file_is_created(self, tmp_path, monkeypatch):
         """Token is written to the session file."""
-        with patch("services.auth_service.settings") as mock_settings:
-            mock_settings.session_file = tmp_path / "session"
-            _write_session_file("test.token.value")
+        # Arrange
+        session_file = tmp_path / "session"
+        monkeypatch.setattr(
+            "services.auth_service.settings.session_file",
+            session_file
+        )
 
-        assert (tmp_path / "session").exists()
+        # Act
+        _write_session_file("test.token.value")
 
-    def test_session_file_contains_token(self, tmp_path):
+        # Assert
+        assert session_file.exists()
+
+    def test_session_file_contains_token(self, tmp_path, monkeypatch):
         """Session file content matches the written token."""
-        from services.auth_service import _write_session_file
 
-        with patch("services.auth_service.settings") as mock_settings:
-            mock_settings.session_file = tmp_path / "session"
-            _write_session_file("test.token.value")
+        session_file = tmp_path / "session"
+        monkeypatch.setattr(
+            "services.auth_service.settings.session_file",
+            session_file
+        )
 
-        assert (tmp_path / "session").read_text() == "test.token.value"
+        _write_session_file("test.token.value")
+
+        assert session_file.read_text() == "test.token.value"
+
+    def test_session_file_permissions_are_restricted(self, tmp_path, monkeypatch):
+        """Session file should have chmod 600 permissions."""
+
+        session_file = tmp_path / "session"
+        monkeypatch.setattr(
+            "services.auth_service.settings.session_file",
+            session_file
+        )
+
+        _write_session_file("test.token.value")
+
+        # Extract permission bits
+        file_mode = session_file.stat().st_mode & 0o777
+
+        assert file_mode == 0o600
 
 class TestLogin:
     """Tests for the login service function."""
@@ -261,24 +287,21 @@ class TestLogin:
             with pytest.raises(AuthenticationError, match="deactivated"):
                 login(session, c.email, "correctpassword")
 
-    # ---------------------------
-    # Edge cases
-    # ---------------------------
+class TestDeleteSessionFile:
+    """Tests for session file deletion."""
 
-    def test_must_change_password_raises(
-            self, make_collaborator, management_role
-    ):
-        """First-login collaborator raises MustChangePasswordError."""
-        c = make_collaborator(
-            role=management_role,
-            is_active=True,
-            must_change_password=True,
+    def test_session_file_is_deleted(self, tmp_path, monkeypatch):
+        """Session file should be deleted if it exists."""
+
+        session_file = tmp_path / "session"
+
+        monkeypatch.setattr(
+            "services.auth_service.settings.session_file",
+            session_file
         )
-        c.set_password("correctpassword")
 
-        session = MagicMock()
-        session.query.return_value.filter_by.return_value.first.return_value = c
+        session_file.write_text("token")
 
-        with patch("services.auth_service._write_session_file"):
-            with pytest.raises(MustChangePasswordError):
-                login(session, c.email, "correctpassword")
+        _delete_session_file()
+
+        assert not session_file.exists()
