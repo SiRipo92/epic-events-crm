@@ -10,4 +10,8 @@ lint:
 check: format lint
 
 test:
-	pytest -v --cov
+	pytest
+
+coverage:
+	pytest --cov-report=html:tests/coverage_html
+	open tests/coverage_html/index.html
