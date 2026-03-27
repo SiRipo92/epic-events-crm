@@ -14,10 +14,16 @@ import pytest
 from datetime import timedelta, timezone
 import datetime as dt
 from unittest.mock import MagicMock
+from pathlib import Path
 
 from config import settings
 from exceptions import AuthenticationError, ValidationError
-from services.auth_service import _generate_token, _decode_token, change_password
+from services.auth_service import (
+    _generate_token,
+    _decode_token,
+    change_password,
+    _get_session_path
+)
 
 class TestGenerateToken:
     """Tests for JWT token generation."""
@@ -132,3 +138,20 @@ class TestChangePassword:
 
         with pytest.raises(ValidationError):
             change_password(session, c, "samepassword", "samepassword")
+
+class TestGetSessionPath:
+    """Tests for session path resolution."""
+
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
+    def test_returns_path_object(self):
+        """Returns a Path instance."""
+        result = _get_session_path()
+        assert isinstance(result, Path)
+
+    def test_returns_correct_path(self):
+        """Returns the path defined in settings."""
+        result = _get_session_path()
+        assert result == settings.session_file
