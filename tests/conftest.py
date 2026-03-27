@@ -25,17 +25,17 @@ def make_client():
     """Factory for Client instances.
 
     Usage:
-        def test_something(make_client):
-            c = make_client(status=ClientStatus.ACTIVE)
+    def test_something(make_client):
+        c = make_client(first_name="Marie", commercial_id=2)
     """
     def _factory(
-        id=1,
-        first_name="Jean",
-        last_name="Durand",
-        email="jean@company.com",
-        commercial_id=1,
-        contracts=None,
-    ):
+        id: int = 1,
+        first_name: str = "Jean",
+        last_name: str = "Durand",
+        email: str = "jean@company.com",
+        commercial_id: int = 1,
+        contracts: list | None = None,
+    ) -> Client:
         c = Client()
         c.id = id
         c.first_name = first_name
@@ -49,13 +49,7 @@ def make_client():
 
 @pytest.fixture
 def make_contract():
-    """Factory for Contract instances.
-
-    Usage:
-        def test_something(make_contract):
-            c = make_contract(status=ContractStatus.SIGNED)
-    """
-
+    """Factory for Contract instances."""
     def _factory(
         id=1,
         client_id=1,
@@ -63,7 +57,7 @@ def make_contract():
         total_amount=Decimal("5000.00"),
         remaining_amount=Decimal("5000.00"),
         deposit_received=False,
-        status=ContractStatus.DRAFT,
+        status: ContractStatus = ContractStatus.DRAFT,
     ):
         c = Contract()
         c.id = id
@@ -78,20 +72,22 @@ def make_contract():
 
 @pytest.fixture
 def make_event():
-    """Factory for Event instances.
+    """Factory for Event instances."""
 
-    Usage:
-        def test_something(make_event):
-            e = make_event(support_id=3)
-    """
     def _factory(
-        id=1,
-        contract_id=1,
-        title="Test Event",
-        start_date=None,
-        end_date=None,
-        support_id=None,
-        is_cancelled=False,
+        id: int = 1,
+        contract_id: int = 1,
+        title: str = "Test Event",
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        location_street: str | None = None,
+        location_zip: str | None = None,
+        location_city: str | None = None,
+        location_country: str | None = None,
+        attendees: int = 0,
+        notes: str | None = None,
+        support_id: int | None = None,
+        is_cancelled: bool = False,
     ):
         e = Event()
         e.id = id
@@ -99,6 +95,12 @@ def make_event():
         e.title = title
         e.start_date = start_date or datetime(2025, 9, 1, 9, 0)
         e.end_date = end_date or datetime(2025, 9, 1, 17, 0)
+        e.location_street = location_street
+        e.location_zip = location_zip
+        e.location_city = location_city
+        e.location_country = location_country
+        e.attendees = attendees
+        e.notes = notes
         e.support_id = support_id
         e.is_cancelled = is_cancelled
         return e
