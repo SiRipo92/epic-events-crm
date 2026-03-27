@@ -17,13 +17,14 @@ from unittest.mock import MagicMock, patch
 from pathlib import Path
 
 from config import settings
-from exceptions import AuthenticationError, ValidationError
+from exceptions import AuthenticationError, MustChangePasswordError, ValidationError
 from services.auth_service import (
     _generate_token,
     _decode_token,
     change_password,
     _get_session_path,
-    _write_session_file
+    _write_session_file,
+    login
 )
 
 class TestGenerateToken:
@@ -182,3 +183,29 @@ class TestWriteSessionFile:
             _write_session_file("test.token.value")
 
         assert (tmp_path / "session").read_text() == "test.token.value"
+
+class TestLogin:
+    """Tests for the login service function."""
+
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
+    def test_valid_credentials_returns_collaborator(
+        self, make_collaborator, management_role
+    ):
+        """Valid email and password returns the collaborator."""
+        c = make_collaborator(
+            role=management_role,
+            is_active=True,
+            must_change_password=False,
+        )
+        c.set_password("correctpassword")
+
+        session = MagicMock()
+        session.query.return_value.filter_by.return_value.first.return_value = c
+
+        with patch("services.auth_service._write_session_file"):
+            result = login(session, c.email, "correctpassword")
+
+        assert result == c
