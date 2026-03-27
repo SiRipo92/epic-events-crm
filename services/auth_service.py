@@ -10,11 +10,19 @@ with chmod 600. They expire after 8 hours.
 """
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import jwt
 
 from config import settings
 from exceptions import AuthenticationError, ValidationError
+
+
+# ── Session file helpers ───────────────────────────────────────────────────────
+
+def _get_session_path() -> Path:
+    """Return the path to the session token file."""
+    return settings.session_file
 
 # ── Token helpers ─────────────────────────────────────────────────────────────
 
@@ -82,3 +90,4 @@ def change_password(session, collaborator, current_password: str, new_password: 
     collaborator.set_password(new_password)
     collaborator.must_change_password = False
     session.commit()
+
