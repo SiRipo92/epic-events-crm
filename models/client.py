@@ -60,12 +60,12 @@ class Client(Base):
     commercial_id: Mapped[int] = mapped_column(nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
     updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=True,
         onupdate=func.now(),
     )
