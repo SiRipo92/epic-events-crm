@@ -57,9 +57,9 @@ body:
       label: Sprint
       options:
         - "Sprint 1 — Project Foundation"
-        - "Sprint 2 — Authentication & Management"
-        - "Sprint 3 — Commercial & Support"
-        - "Sprint 4 — Testing & Delivery"
+        - "Sprint 2 — Collaborator Identity, Auth & Authorisation"
+        - "Sprint 3 — Data Read & Write Operations"
+        - "Sprint 4 — CLI Interface, Sentry & Delivery"
     validations:
       required: true
 
