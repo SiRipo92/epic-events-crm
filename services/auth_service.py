@@ -9,13 +9,11 @@ Session tokens are JWT tokens stored at ~/.epic_events/session
 with chmod 600. They expire after 8 hours.
 """
 
-import os
 from datetime import datetime, timedelta, timezone
 
 import jwt
 
 from config import settings
-from exceptions import AuthenticationError, MustChangePasswordError, ValidationError
 
 def _generate_token(collaborator) -> str:
     """Generate a signed JWT token for the given collaborator.
