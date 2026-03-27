@@ -27,7 +27,8 @@ from services.auth_service import (
     login,
     _delete_session_file,
     logout,
-    _read_session_file
+    _read_session_file,
+    get_session_user
 )
 
 class TestGenerateToken:
@@ -413,3 +414,144 @@ class TestReadSessionFile:
 
         # Assert
         assert result is None
+
+
+class TestGetSessionUser:
+    """Tests for retrieving the current session user."""
+
+
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
+    def test_returns_collaborator_if_token_valid(self, monkeypatch):
+        """Should return collaborator when token and user are valid."""
+
+        fake_payload = {"user_id": 1}
+
+        class FakeCollaborator:
+            is_active = True
+
+        class FakeSession:
+            def get(self, model, user_id):
+                return FakeCollaborator()
+
+        monkeypatch.setattr(
+            "services.auth_service._read_session_file",
+            lambda: "valid.token"
+        )
+
+        monkeypatch.setattr(
+            "services.auth_service._decode_token",
+            lambda token: fake_payload
+        )
+
+        result = get_session_user(session=FakeSession())
+
+        assert isinstance(result, FakeCollaborator)
+
+    # ---------------------------
+    # Sad path
+    # ---------------------------
+
+    def test_returns_none_if_no_token(self, monkeypatch):
+        """Should return None when no session token exists."""
+
+        monkeypatch.setattr(
+            "services.auth_service._read_session_file",
+            lambda: None
+        )
+
+        result = get_session_user(session=None)
+
+        assert result is None
+
+    def test_raises_if_user_not_found(self, monkeypatch):
+        """Should delete session and raise if user does not exist."""
+
+        fake_payload = {"user_id": 1}
+
+        class FakeSession:
+            def get(self, model, user_id):
+                return None
+
+        delete_called = {"called": False}
+
+        def fake_delete():
+            delete_called["called"] = True
+
+        monkeypatch.setattr(
+            "services.auth_service._read_session_file",
+            lambda: "valid.token"
+        )
+
+        monkeypatch.setattr(
+            "services.auth_service._decode_token",
+            lambda token: fake_payload
+        )
+
+        monkeypatch.setattr(
+            "services.auth_service._delete_session_file",
+            fake_delete
+        )
+
+        with pytest.raises(AuthenticationError):
+            get_session_user(session=FakeSession())
+
+        assert delete_called["called"] is True
+
+    def test_raises_if_user_inactive(self, monkeypatch):
+        """Should delete session and raise if user is inactive."""
+
+        fake_payload = {"user_id": 1}
+
+        class FakeCollaborator:
+            is_active = False
+
+        class FakeSession:
+            def get(self, model, user_id):
+                return FakeCollaborator()
+
+        delete_called = {"called": False}
+
+        def fake_delete():
+            delete_called["called"] = True
+
+        monkeypatch.setattr(
+            "services.auth_service._read_session_file",
+            lambda: "valid.token"
+        )
+
+        monkeypatch.setattr(
+            "services.auth_service._decode_token",
+            lambda token: fake_payload
+        )
+
+        monkeypatch.setattr(
+            "services.auth_service._delete_session_file",
+            fake_delete
+        )
+
+        with pytest.raises(AuthenticationError):
+            get_session_user(session=FakeSession())
+
+        assert delete_called["called"] is True
+
+    def test_raises_if_token_invalid(self, monkeypatch):
+        """Should raise AuthenticationError if token is invalid."""
+
+        def fake_decode(token):
+            raise AuthenticationError("Invalid token")
+
+        monkeypatch.setattr(
+            "services.auth_service._read_session_file",
+            lambda: "invalid.token"
+        )
+
+        monkeypatch.setattr(
+            "services.auth_service._decode_token",
+            fake_decode
+        )
+
+        with pytest.raises(AuthenticationError):
+            get_session_user(session=None)
