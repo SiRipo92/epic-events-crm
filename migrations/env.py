@@ -36,12 +36,12 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # ── Import all models so Alembic can detect them ──────────────────────────────
-# Every model imported here is detected by autogenerate.
-# Collaborator added in Sprint 2 when authentication is built.
 from models.base import Base
-from models.client import Client      # noqa: F401
-from models.contract import Contract  # noqa: F401
-from models.event import Event        # noqa: F401
+from models.role import Role              # noqa: F401
+from models.collaborator import Collaborator  # noqa: F401
+from models.client import Client          # noqa: F401
+from models.contract import Contract      # noqa: F401
+from models.event import Event            # noqa: F401
 
 target_metadata = Base.metadata
 
