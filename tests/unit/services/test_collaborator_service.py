@@ -15,6 +15,7 @@ import pytest
 from exceptions import DuplicateEmailError, PermissionDeniedError
 from services.collaborator_service import (
     create_collaborator,
+    update_collaborator
 )
 
 
@@ -95,3 +96,35 @@ class TestCreateCollaborator:
                 role_id=2,
                 password="initialpassword123",
             )
+
+class TestUpdateCollaborator:
+    """Tests for the update_collaborator service function."""
+
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
+    def test_valid_update_persists_fields(
+            self, management_user, make_collaborator, management_role
+    ):
+        """Valid update persists changed fields and commits."""
+        target = make_collaborator(
+            id=2,
+            first_name="Bob",
+            last_name="Dupont",
+            email="bob.dupont@epicevents.com",
+            role=management_role,
+        )
+
+        session = MagicMock()
+        session.query.return_value.filter_by.return_value.first.return_value = None
+
+        result = update_collaborator(
+            session=session,
+            current_user=management_user,
+            collaborator=target,
+            first_name="Robert",
+        )
+
+        assert result.first_name == "Robert"
+        session.commit.assert_called_once()
