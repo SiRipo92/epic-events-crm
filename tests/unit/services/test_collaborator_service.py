@@ -14,6 +14,7 @@ import pytest
 from unittest.mock import patch
 
 from exceptions import DuplicateEmailError, PermissionDeniedError, ReassignmentRequiredError
+from services.auth_service import settings
 from services.collaborator_service import (
     create_collaborator,
     update_collaborator,
@@ -381,6 +382,33 @@ class TestDeactivateCollaborator:
 
         assert collaborator.is_active is False
         session.commit.assert_called_once()
+
+    def test_session_file_deleted_on_deactivation(
+            self,
+            management_user,
+            make_collaborator,
+            session_file,
+    ):
+        """Session file is deleted if it exists."""
+
+        collaborator = make_collaborator(id=42)
+
+        # Create the file
+        session_file.write_text("token")
+
+        session = MagicMock()
+
+        with patch(
+                "services.collaborator_service.get_active_dossiers",
+                return_value={"clients": [], "contracts": [], "events": []},
+        ):
+            deactivate_collaborator(
+                session=session,
+                current_user=management_user,
+                collaborator=collaborator,
+            )
+
+        assert not session_file.exists()
 
     # ---------------------------
     # Sad path
