@@ -110,7 +110,6 @@ class TestChangePassword:
 
         assert c.verify_password("newpassword123") is True
 
-
     # ---------------------------
     # Sad path
     # ---------------------------

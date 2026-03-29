@@ -223,6 +223,7 @@ def change_password(
     collaborator.set_password(new_password)
     session.commit()
 
+
 def complete_first_login(session: Session, collaborator: Collaborator) -> None:
     """Clear the must_change_password flag after a successful first-login change.
 
