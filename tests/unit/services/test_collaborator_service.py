@@ -22,6 +22,7 @@ from services.collaborator_service import (
     create_collaborator,
     deactivate_collaborator,
     get_active_dossiers,
+    get_collaborators,
     update_collaborator,
 )
 
@@ -440,3 +441,115 @@ class TestDeactivateCollaborator:
 
         # If no exception → test passes
         session.commit.assert_called_once()
+
+
+class TestGetCollaborators:
+    """Tests for the get_collaborators function."""
+
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
+    def test_no_filters_returns_all_collaborators(
+        self, management_user, make_collaborator, management_role, commercial_role
+    ):
+        """No filters returns all collaborators."""
+        collaborators = [
+            make_collaborator(id=1, role=management_role),
+            make_collaborator(id=2, role=commercial_role),
+        ]
+        session = MagicMock()
+        session.query.return_value.all.return_value = collaborators
+
+        result = get_collaborators(
+            session=session,
+            current_user=management_user,
+        )
+
+        assert result == collaborators
+
+    def test_filter_by_role_returns_matching_collaborators(
+        self, management_user, make_collaborator, management_role
+    ):
+        """Filter by role returns only collaborators with that role."""
+        management_collaborator = make_collaborator(id=1, role=management_role)
+
+        session = MagicMock()
+        mock_query = (
+            session.query.return_value.join.return_value.filter.return_value.all
+        )
+        mock_query.return_value = [management_collaborator]
+
+        result = get_collaborators(
+            session=session,
+            current_user=management_user,
+            role="MANAGEMENT",
+        )
+
+        assert len(result) == 1
+        assert result[0].role.name == "MANAGEMENT"
+
+    def test_filter_by_is_active_returns_matching_collaborators(
+        self, management_user, make_collaborator, management_role
+    ):
+        """Filter by is_active returns only collaborators with that status."""
+        inactive_collaborator = make_collaborator(
+            id=4,
+            role=management_role,
+            is_active=False,
+        )
+
+        session = MagicMock()
+        session.query.return_value.filter.return_value.all.return_value = [
+            inactive_collaborator
+        ]
+
+        result = get_collaborators(
+            session=session,
+            current_user=management_user,
+            is_active=False,
+        )
+
+        assert len(result) == 1
+        assert result[0].is_active is False
+
+    def test_combined_filters_returns_matching_collaborators(
+        self, management_user, make_collaborator, management_role
+    ):
+        """Role and is_active filters can be combined."""
+        active_manager = make_collaborator(
+            id=1,
+            role=management_role,
+            is_active=True,
+        )
+
+        session = MagicMock()
+        mock_query = (
+            session.query.return_value.join.return_value.filter.return_value.filter.return_value.all  # noqa: E501
+        )
+        mock_query.return_value = [active_manager]
+
+        result = get_collaborators(
+            session=session,
+            current_user=management_user,
+            role="MANAGEMENT",
+            is_active=True,
+        )
+
+        assert len(result) == 1
+        assert result[0].role.name == "MANAGEMENT"
+        assert result[0].is_active is True
+
+    # ---------------------------
+    # Sad path
+    # ---------------------------
+
+    def test_non_management_caller_raises(self, commercial_user):
+        """Non-Management caller raises PermissionDeniedError."""
+        session = MagicMock()
+
+        with pytest.raises(PermissionDeniedError):
+            get_collaborators(
+                session=session,
+                current_user=commercial_user,
+            )

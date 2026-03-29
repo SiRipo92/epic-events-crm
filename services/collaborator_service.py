@@ -15,6 +15,7 @@ from models.client import Client
 from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
 from models.event import Event
+from models.role import Role
 from permissions.decorators import require_role
 from services.auth_service import _delete_session_file
 
@@ -246,3 +247,37 @@ def deactivate_collaborator(
 
     # Step 5 — persist changes
     session.commit()
+
+
+@require_role("MANAGEMENT")
+def get_collaborators(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+    role: str | None = None,
+    is_active: bool | None = None,
+) -> list[Collaborator]:
+    """
+    Return all collaborators, optionally filtered by role or active status.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated Management collaborator.
+        role: Optional role name to filter by e.g. 'MANAGEMENT'.
+        is_active: Optional active status filter.
+
+    Returns:
+        list[Collaborator]: Matching collaborators.
+
+    Raises:
+        PermissionDeniedError: If current_user is not Management.
+    """
+    query = session.query(Collaborator)
+
+    if role is not None:
+        query = query.join(Role).filter(Role.name == role)
+
+    if is_active is not None:
+        query = query.filter(Collaborator.is_active == is_active)
+
+    results: list[Collaborator] = query.all()  # type: ignore[assignment]
+    return results
