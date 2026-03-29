@@ -520,3 +520,30 @@ class TestGetCollaborators:
                 session=session,
                 current_user=commercial_user,
             )
+
+    def test_combined_filters_returns_matching_collaborators(
+            self, management_user, make_collaborator, management_role
+    ):
+        """Role and is_active filters can be combined."""
+        active_manager = make_collaborator(
+            id=1,
+            role=management_role,
+            is_active=True,
+        )
+
+        session = MagicMock()
+        (session.query.return_value.join.return_value.
+         filter.return_value.filter.return_value.all).return_value = [
+            active_manager
+        ]
+
+        result = get_collaborators(
+            session=session,
+            current_user=management_user,
+            role="MANAGEMENT",
+            is_active=True,
+        )
+
+        assert len(result) == 1
+        assert result[0].role.name == "MANAGEMENT"
+        assert result[0].is_active is True
