@@ -13,9 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from exceptions import DuplicateEmailError, PermissionDeniedError
-from services.collaborator_service import (
-    create_collaborator,
-)
+from services.collaborator_service import create_collaborator, update_collaborator
 
 
 class TestCreateCollaborator:
@@ -46,7 +44,7 @@ class TestCreateCollaborator:
         mock_session_empty.commit.assert_called_once()
 
     def test_employee_number_is_generated(self, management_user, mock_session_empty):
-        """Employoee number is auto-generated in EMP-XXX format."""
+        """Employee number is auto-generated in EMP-XXX format."""
         result = create_collaborator(
             session=mock_session_empty,
             current_user=management_user,
@@ -94,4 +92,108 @@ class TestCreateCollaborator:
                 email="sophie.marceau@epicevents.com",
                 role_id=2,
                 password="initialpassword123",
+            )
+
+
+class TestUpdateCollaborator:
+    """Tests for the update_collaborator service function."""
+
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
+    def test_valid_update_persists_fields(self, management_user, make_collaborator):
+        """Valid update persists changed fields and commits."""
+        target = make_collaborator(
+            id=2,
+            first_name="Bob",
+            last_name="Dupont",
+            email="bob.dupont@epicevents.com",
+        )
+
+        session = MagicMock()
+        session.query.return_value.filter_by.return_value.first.return_value = None
+
+        result = update_collaborator(
+            session=session,
+            current_user=management_user,
+            collaborator=target,
+            first_name="Robert",
+        )
+
+        assert result.first_name == "Robert"
+        session.commit.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "field, value",
+        [
+            ("last_name", "Martin"),
+            ("phone", "0612345678"),
+            ("role_id", 3),
+        ],
+    )
+    def test_partial_update_applies_field(
+        self, management_user, make_collaborator, field, value
+    ):
+        """Each updatable field is applied when provided."""
+        target = make_collaborator(id=2)
+        session = MagicMock()
+        session.query.return_value.filter_by.return_value.first.return_value = None
+
+        update_collaborator(
+            session=session,
+            current_user=management_user,
+            collaborator=target,
+            **{field: value},
+        )
+
+        assert getattr(target, field) == value
+
+    # ---------------------------
+    # Sad path
+    # ---------------------------
+
+    def test_duplicate_email_on_update_raises(
+        self, management_user, make_collaborator, management_role
+    ):
+        """Updating to an existing email raises DuplicateEmailError."""
+        target = make_collaborator(
+            id=2,
+            email="bob.dupont@epicevents.com",
+            role=management_role,
+        )
+        existing = make_collaborator(
+            id=3,
+            email="already.taken@epicevents.com",
+            role=management_role,
+        )
+        session = MagicMock()
+        session.query.return_value.filter_by.return_value.first.return_value = existing
+
+        with pytest.raises(DuplicateEmailError):
+            update_collaborator(
+                session=session,
+                current_user=management_user,
+                collaborator=target,
+                email="already.taken@epicevents.com",
+            )
+
+    def test_non_management_caller_raises(
+        self,
+        commercial_user,
+        make_collaborator,
+    ):
+        """Non-Management caller raises PermissionDeniedError."""
+        target = make_collaborator(
+            id=2,
+            email="bob.dupont@epicevents.com",
+        )
+        session = MagicMock()
+
+        with pytest.raises(PermissionDeniedError):
+            update_collaborator(
+                session=session,
+                current_user=commercial_user,
+                collaborator=target,
+                first_name="Robert",
             )

@@ -33,6 +33,9 @@ def _generate_employee_number(session: Session) -> str:
     return f"EMP-{count + 1:03d}"
 
 
+# ── Public Interface ─────────────────────────────────────────────────────────────────
+
+
 @require_role("MANAGEMENT")
 def create_collaborator(
     session: Session,
@@ -73,7 +76,7 @@ def create_collaborator(
     # Step 2 — generate employee number
     employee_number = _generate_employee_number(session)
 
-    # Step 3 - create the collaborator
+    # Step 3 - build the collaborator
     collaborator = Collaborator()
     collaborator.employee_number = employee_number
     collaborator.first_name = first_name
@@ -87,4 +90,59 @@ def create_collaborator(
     session.add(collaborator)
     session.commit()
 
+    return collaborator
+
+
+@require_role("MANAGEMENT")
+def update_collaborator(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+    collaborator: Collaborator,
+    first_name: str | None = None,
+    last_name: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    role_id: int | None = None,
+) -> Collaborator:
+    """
+    Update an existing collaborator account/details.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated Management collaborator.
+        collaborator: The Collaborator instance to update.
+        first_name: New first name, or None to leave unchanged.
+        last_name: New last name, or None to leave unchanged.
+        email: New email address, or None to leave unchanged.
+        phone: New phone number, or None to leave unchanged.
+        role_id: New role FK, or None to leave unchanged.
+
+    Returns:
+        Collaborator: The updated collaborator instance.
+
+    Raises:
+        PermissionDeniedError: If current_user is not Management.
+        DuplicateEmailError: If new email already belongs to another collaborator.
+    """
+    if first_name is not None:
+        collaborator.first_name = first_name
+
+    if last_name is not None:
+        collaborator.last_name = last_name
+
+    if email is not None:
+        existing = session.query(Collaborator).filter_by(email=email).first()
+        if existing and existing.id != collaborator.id:
+            raise DuplicateEmailError(
+                f"A collaborator with email '{email}' already exists."
+            )
+        collaborator.email = email
+
+    if phone is not None:
+        collaborator.phone = phone
+
+    if role_id is not None:
+        collaborator.role_id = role_id
+
+    session.commit()
     return collaborator
