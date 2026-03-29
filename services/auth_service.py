@@ -9,11 +9,14 @@ Session tokens are JWT tokens stored at ~/.epic_events/session
 with chmod 600. They expire after 8 hours.
 """
 
+from __future__ import annotations
+
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import jwt
+from sqlalchemy.orm import Session
 
 from config import settings
 from exceptions import AuthenticationError, ValidationError
@@ -26,7 +29,7 @@ def _get_session_path() -> Path:
     """Return the path to the session token file."""
     return settings.session_file
 
-def _write_session_file(token: str) -> Path:
+def _write_session_file(token: str) -> None:
     """
     Write a JWT token to the session file with restricted permissions.
 
@@ -58,7 +61,8 @@ def _delete_session_file() -> None:
 # ── Token helpers ─────────────────────────────────────────────────────────────
 
 def _generate_token(collaborator) -> str:
-    """Generate a signed JWT token for the given collaborator.
+    """
+    Generate a signed JWT token for the given collaborator.
 
     Args:
         collaborator: The authenticated Collaborator instance.
@@ -95,7 +99,7 @@ def _decode_token(token: str) -> dict:
 
 # ── Public interface ──────────────────────────────────────────────────────────
 
-def login(session, email: str, password: str):
+def login(session: Session, email: str, password: str) -> Collaborator:
     """Authenticate a collaborator and create a session token.
 
     Checks credentials and active status, then writes a JWT to the
@@ -116,7 +120,9 @@ def login(session, email: str, password: str):
                              is deactivated.
     """
     # Step 1 — look up by email
-    collaborator = session.query(Collaborator).filter_by(email=email).first()
+    collaborator: Collaborator | None = (
+        session.query(Collaborator).filter_by(email=email).first()
+    )
 
     # Step 2 — verify password (same error as unknown email — no enumeration)
     if not collaborator or not collaborator.verify_password(password):
@@ -130,7 +136,6 @@ def login(session, email: str, password: str):
     _write_session_file(_generate_token(collaborator))
 
     # Step 5 — return collaborator regardless of must_change_password
-    # The caller checks collaborator.must_change_password and routes accordingly
     return collaborator
 
 def logout() -> None:
@@ -141,7 +146,7 @@ def logout() -> None:
     """
     _delete_session_file()
 
-def get_session_user(session):
+def get_session_user(session: Session) -> Collaborator | None:
     """
     Return the currently authenticated collaborator from the session token.
 
@@ -164,7 +169,7 @@ def get_session_user(session):
 
     payload = _decode_token(token)
 
-    collaborator = session.get(Collaborator, payload["user_id"])
+    collaborator: Collaborator | None = session.get(Collaborator, payload["user_id"])
 
     if not collaborator:
         _delete_session_file()
@@ -178,7 +183,12 @@ def get_session_user(session):
 
     return collaborator
 
-def change_password(session, collaborator, current_password: str, new_password: str):
+def change_password(
+        session: Session,
+        collaborator: Collaborator,
+        current_password: str,
+        new_password: str
+) -> None:
     """
     Change a collaborator's password.
 
