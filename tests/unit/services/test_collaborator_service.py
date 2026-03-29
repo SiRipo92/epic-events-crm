@@ -7,8 +7,10 @@ Tests are organised by function:
     - get_collaborators
     - get_collaborator_by_id
 """
+import pytest
 from unittest.mock import MagicMock
 
+from exceptions import DuplicateEmailError
 from services.collaborator_service import (
 create_collaborator,
 )
@@ -38,3 +40,19 @@ class TestCreateCollaborator:
         assert result.password_hash != "initialpassword123"
         session.add.assert_called_once()
         session.commit.assert_called_once()
+
+    def test_duplicate_email_raises(self, management_user):
+        """Duplicate email raises DuplicateEmailError."""
+        session = MagicMock()
+        session.query.return_value.filter_by.return_value.first.return_value = MagicMock()
+
+        with pytest.raises(DuplicateEmailError):
+            create_collaborator(
+                session=session,
+                current_user=management_user,
+                first_name="Sophie",
+                last_name="Marceau",
+                email="already.exists@epicevents.com",
+                role_id=2,
+                password="initialpassword123",
+            )
