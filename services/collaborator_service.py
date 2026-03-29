@@ -49,6 +49,7 @@ def _has_active_dossiers(dossiers: dict) -> bool:
     """
     return any(dossiers.values())
 
+
 def get_active_dossiers(session: Session, collaborator: Collaborator) -> dict:
     """
     Retrieve all active dossiers linked to a collaborator.
