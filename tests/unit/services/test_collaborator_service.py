@@ -386,3 +386,34 @@ class TestDeactivateCollaborator:
     # Sad path
     # ---------------------------
 
+    @pytest.mark.parametrize(
+        "dossiers",
+        [
+            {"clients": ["client"], "contracts": [], "events": []},
+            {"clients": [], "contracts": ["contract"], "events": []},
+            {"clients": [], "contracts": [], "events": ["event"]},
+        ],
+    )
+    def test_raises_if_any_active_dossier_exists(
+            self,
+            management_user,
+            make_collaborator,
+            dossiers,
+    ):
+        """Raises ReassignmentRequiredError if any type of dossier exists."""
+
+        collaborator = make_collaborator(id=42)
+        session = MagicMock()
+
+        with patch(
+                "services.collaborator_service.get_active_dossiers",
+                return_value=dossiers,
+        ):
+            with pytest.raises(ReassignmentRequiredError):
+                deactivate_collaborator(
+                    session=session,
+                    current_user=management_user,
+                    collaborator=collaborator,
+                )
+
+        session.commit.assert_not_called()
