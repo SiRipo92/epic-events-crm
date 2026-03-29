@@ -10,7 +10,7 @@ Tests are organised by function:
 import pytest
 from unittest.mock import MagicMock
 
-from exceptions import DuplicateEmailError
+from exceptions import DuplicateEmailError, PermissionDeniedError
 from services.collaborator_service import (
 create_collaborator,
 )
@@ -53,6 +53,21 @@ class TestCreateCollaborator:
                 first_name="Sophie",
                 last_name="Marceau",
                 email="already.exists@epicevents.com",
+                role_id=2,
+                password="initialpassword123",
+            )
+
+    def test_non_management_caller_raises(self, commercial_user):
+        """Non-Management caller raises PermissionDeniedError."""
+        session = MagicMock()
+
+        with pytest.raises(PermissionDeniedError):
+            create_collaborator(
+                session=session,
+                current_user=commercial_user,
+                first_name="Sophie",
+                last_name="Marceau",
+                email="sophie.marceau@epicevents.com",
                 role_id=2,
                 password="initialpassword123",
             )
