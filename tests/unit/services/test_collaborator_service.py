@@ -8,20 +8,23 @@ Tests are organised by function:
     - get_collaborator_by_id
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-from unittest.mock import patch
 
-from exceptions import DuplicateEmailError, PermissionDeniedError, ReassignmentRequiredError
-from services.auth_service import settings
-from services.collaborator_service import (
-    create_collaborator,
-    update_collaborator,
-    get_active_dossiers,
-    deactivate_collaborator,
+from exceptions import (
+    DuplicateEmailError,
+    PermissionDeniedError,
+    ReassignmentRequiredError,
 )
 from models.contract import ContractStatus
+from services.collaborator_service import (
+    create_collaborator,
+    deactivate_collaborator,
+    get_active_dossiers,
+    update_collaborator,
+)
+
 
 class TestCreateCollaborator:
     """Tests for the create_collaborator service function."""
@@ -221,7 +224,6 @@ class TestGetActiveDossiers:
         make_event,
     ):
         """Returns clients, contracts, and events linked to collaborator."""
-
         # ── Arrange ────────────────────────────────────────────────
         collaborator = make_collaborator(id=42)
 
@@ -237,9 +239,9 @@ class TestGetActiveDossiers:
 
         # Mock query chains in order of calls
         session.query.return_value.filter.return_value.all.side_effect = [
-            clients,    # first call → clients
+            clients,  # first call → clients
             contracts,  # second call → contracts
-            events,     # third call → events
+            events,  # third call → events
         ]
 
         # ── Act ────────────────────────────────────────────────────
@@ -251,12 +253,11 @@ class TestGetActiveDossiers:
         assert result["events"] == events
 
     def test_all_clients_are_returned(
-            self,
-            make_collaborator,
-            make_client,
+        self,
+        make_collaborator,
+        make_client,
     ):
         """All clients linked to collaborator are returned."""
-
         collaborator = make_collaborator(id=42)
 
         clients = [
@@ -280,11 +281,10 @@ class TestGetActiveDossiers:
     # ---------------------------
 
     def test_returns_empty_lists_when_no_dossiers(
-            self,
-            make_collaborator,
+        self,
+        make_collaborator,
     ):
         """Returns empty lists when collaborator has no linked dossiers."""
-
         collaborator = make_collaborator(id=42)
 
         session = MagicMock()
@@ -303,12 +303,11 @@ class TestGetActiveDossiers:
         }
 
     def test_excludes_cancelled_and_paid_contracts(
-            self,
-            make_collaborator,
-            make_contract,
+        self,
+        make_collaborator,
+        make_contract,
     ):
         """Contracts with CANCELLED or PAID_IN_FULL status are excluded."""
-
         collaborator = make_collaborator(id=42)
 
         active_contract = make_contract(id=1, commercial_id=42)
@@ -330,16 +329,14 @@ class TestGetActiveDossiers:
         assert active_contract in result["contracts"]
 
     def test_excludes_cancelled_events(
-            self,
-            make_collaborator,
-            make_event,
+        self,
+        make_collaborator,
+        make_event,
     ):
         """Cancelled events are excluded from active dossiers."""
-
         collaborator = make_collaborator(id=42)
 
         active_event = make_event(id=1, support_id=42, is_cancelled=False)
-        cancelled_event = make_event(id=2, support_id=42, is_cancelled=True)
 
         session = MagicMock()
         session.query.return_value.filter.return_value.all.side_effect = [
@@ -352,6 +349,7 @@ class TestGetActiveDossiers:
 
         assert active_event in result["events"]
 
+
 class TestDeactivateCollaborator:
     """Tests for the deactivate_collaborator service function."""
 
@@ -360,19 +358,18 @@ class TestDeactivateCollaborator:
     # ---------------------------
 
     def test_deactivates_collaborator_when_no_dossiers(
-            self,
-            management_user,
-            make_collaborator,
+        self,
+        management_user,
+        make_collaborator,
     ):
         """Collaborator is deactivated when no active dossiers exist."""
-
         collaborator = make_collaborator(id=42, is_active=True)
 
         session = MagicMock()
 
         with patch(
-                "services.collaborator_service.get_active_dossiers",
-                return_value={"clients": [], "contracts": [], "events": []},
+            "services.collaborator_service.get_active_dossiers",
+            return_value={"clients": [], "contracts": [], "events": []},
         ):
             deactivate_collaborator(
                 session=session,
@@ -384,13 +381,12 @@ class TestDeactivateCollaborator:
         session.commit.assert_called_once()
 
     def test_session_file_deleted_on_deactivation(
-            self,
-            management_user,
-            make_collaborator,
-            session_file,
+        self,
+        management_user,
+        make_collaborator,
+        session_file,
     ):
         """Session file is deleted if it exists."""
-
         collaborator = make_collaborator(id=42)
 
         # Create the file
@@ -399,8 +395,8 @@ class TestDeactivateCollaborator:
         session = MagicMock()
 
         with patch(
-                "services.collaborator_service.get_active_dossiers",
-                return_value={"clients": [], "contracts": [], "events": []},
+            "services.collaborator_service.get_active_dossiers",
+            return_value={"clients": [], "contracts": [], "events": []},
         ):
             deactivate_collaborator(
                 session=session,
@@ -423,19 +419,18 @@ class TestDeactivateCollaborator:
         ],
     )
     def test_raises_if_any_active_dossier_exists(
-            self,
-            management_user,
-            make_collaborator,
-            dossiers,
+        self,
+        management_user,
+        make_collaborator,
+        dossiers,
     ):
         """Raises ReassignmentRequiredError if any type of dossier exists."""
-
         collaborator = make_collaborator(id=42)
         session = MagicMock()
 
         with patch(
-                "services.collaborator_service.get_active_dossiers",
-                return_value=dossiers,
+            "services.collaborator_service.get_active_dossiers",
+            return_value=dossiers,
         ):
             with pytest.raises(ReassignmentRequiredError):
                 deactivate_collaborator(
@@ -447,13 +442,12 @@ class TestDeactivateCollaborator:
         session.commit.assert_not_called()
 
     def test_no_error_if_session_file_missing(
-            self,
-            management_user,
-            make_collaborator,
-            session_file,
+        self,
+        management_user,
+        make_collaborator,
+        session_file,
     ):
         """No error occurs if session file does not exist."""
-
         collaborator = make_collaborator(id=42)
 
         session = MagicMock()
@@ -463,8 +457,8 @@ class TestDeactivateCollaborator:
             session_file.unlink()
 
         with patch(
-                "services.collaborator_service.get_active_dossiers",
-                return_value={"clients": [], "contracts": [], "events": []},
+            "services.collaborator_service.get_active_dossiers",
+            return_value={"clients": [], "contracts": [], "events": []},
         ):
             deactivate_collaborator(
                 session=session,

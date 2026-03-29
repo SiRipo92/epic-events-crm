@@ -11,12 +11,12 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from exceptions import DuplicateEmailError, ReassignmentRequiredError
-from models.collaborator import Collaborator
 from models.client import Client
+from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
 from models.event import Event
-from services.auth_service import settings
 from permissions.decorators import require_role
+from services.auth_service import settings
 
 # ── Collaborator helpers ─────────────────────────────────────────────────────
 
@@ -36,6 +36,7 @@ def _generate_employee_number(session: Session) -> str:
     count = session.query(Collaborator).count()
     return f"EMP-{count + 1:03d}"
 
+
 def _has_active_dossiers(dossiers: dict) -> bool:
     """
     Check if any active dossiers exist.
@@ -54,6 +55,7 @@ def _has_active_dossiers(dossiers: dict) -> bool:
         ]
     )
 
+
 def _delete_session_file() -> None:
     """
     Delete the current session file if it exists.
@@ -68,6 +70,7 @@ def _delete_session_file() -> None:
     except OSError:
         # Defensive: avoid breaking deactivation on filesystem issues
         pass
+
 
 def get_active_dossiers(session: Session, collaborator: Collaborator) -> dict:
     """
@@ -84,12 +87,9 @@ def get_active_dossiers(session: Session, collaborator: Collaborator) -> dict:
             "events": list[Event],
         }
     """
-
     # ── Clients ────────────────────────────────────────────────
     clients = (
-        session.query(Client)
-        .filter(Client.commercial_id == collaborator.id)
-        .all()
+        session.query(Client).filter(Client.commercial_id == collaborator.id).all()
     )
 
     # ── Contracts (exclude CANCELLED + PAID_IN_FULL) ───────────
@@ -120,6 +120,7 @@ def get_active_dossiers(session: Session, collaborator: Collaborator) -> dict:
         "contracts": contracts,
         "events": events,
     }
+
 
 # ── Public Interface ─────────────────────────────────────────────────────────────────
 
@@ -235,6 +236,7 @@ def update_collaborator(
     session.commit()
     return collaborator
 
+
 @require_role("MANAGEMENT")
 def deactivate_collaborator(
     session: Session,
@@ -247,7 +249,6 @@ def deactivate_collaborator(
     Raises:
         ReassignmentRequiredError: If active dossiers exist.
     """
-
     # Step 1 — retrieve active dossiers
     dossiers = get_active_dossiers(
         session=session,

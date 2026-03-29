@@ -212,12 +212,16 @@ class PaymentExceedsBalanceError(PaymentError):
 
 class ReassignmentRequiredError(Exception):
     """
+    Used by Managers when Deactivating Collaborators.
+
     Raised when a collaborator has active dossiers that must be reassigned
     before deactivation.
     """
 
     def __init__(self, message: str = None, dossiers: dict | None = None):
         """
+        Define the exception message.
+
         Args:
             message: Optional human-readable message
             dossiers: Optional dict of active dossiers, e.g.:
