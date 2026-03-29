@@ -510,3 +510,13 @@ class TestGetCollaborators:
 
         assert len(result) == 1
         assert result[0].is_active is False
+
+    def test_non_management_caller_raises(self, commercial_user):
+        """Non-Management caller raises PermissionDeniedError."""
+        session = MagicMock()
+
+        with pytest.raises(PermissionDeniedError):
+            get_collaborators(
+                session=session,
+                current_user=commercial_user,
+            )
