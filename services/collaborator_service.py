@@ -45,6 +45,13 @@ def create_collaborator(
         PermissionDeniedError: If current_user is not Management.
         DuplicateEmailError: If email already exists.
     """
+    # Step 1 — check email uniqueness
+    existing = session.query(Collaborator).filter_by(email=email).first()
+    if existing:
+        raise DuplicateEmailError(
+            f"A collaborator with email '{email}' already exists."
+        )
+
     collaborator = Collaborator()
     collaborator.first_name = first_name
     collaborator.last_name = last_name
