@@ -532,10 +532,14 @@ class TestGetCollaborators:
         )
 
         session = MagicMock()
-        (session.query.return_value.join.return_value.
-         filter.return_value.filter.return_value.all).return_value = [
-            active_manager
-        ]
+        mock_query = (
+            session.query.return_value
+            .join.return_value
+            .filter.return_value
+            .filter.return_value
+            .all
+        )
+        mock_query.return_value = [active_manager]
 
         result = get_collaborators(
             session=session,
