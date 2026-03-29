@@ -275,5 +275,8 @@ def get_collaborators(
     if role is not None:
         query = query.join(Role).filter(Role.name == role)
 
+    if is_active is not None:
+        query = query.filter(Collaborator.is_active == is_active)
+
     results: list[Collaborator] = query.all()  # type: ignore[assignment]
     return results

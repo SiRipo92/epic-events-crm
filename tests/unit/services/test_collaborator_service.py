@@ -486,3 +486,27 @@ class TestGetCollaborators:
 
         assert len(result) == 1
         assert result[0].role.name == "MANAGEMENT"
+
+    def test_filter_by_is_active_returns_matching_collaborators(
+            self, management_user, make_collaborator, management_role
+    ):
+        """Filter by is_active returns only collaborators with that status."""
+        inactive_collaborator = make_collaborator(
+            id=4,
+            role=management_role,
+            is_active=False,
+        )
+
+        session = MagicMock()
+        session.query.return_value.filter.return_value.all.return_value = [
+            inactive_collaborator
+        ]
+
+        result = get_collaborators(
+            session=session,
+            current_user=management_user,
+            is_active=False,
+        )
+
+        assert len(result) == 1
+        assert result[0].is_active is False
