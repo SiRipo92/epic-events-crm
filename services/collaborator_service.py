@@ -14,7 +14,8 @@ from exceptions import DuplicateEmailError
 from models.collaborator import Collaborator
 from permissions.decorators import require_role
 
-# ── Collaborator creation helpers ───────────────────────────────────────────────────────
+# ── Collaborator creation helpers ─────────────────────────────────────────────────────
+
 
 def _generate_employee_number(session: Session) -> str:
     """Generate the next sequential employee number.
@@ -31,15 +32,16 @@ def _generate_employee_number(session: Session) -> str:
     count = session.query(Collaborator).count()
     return f"EMP-{count + 1:03d}"
 
+
 @require_role("MANAGEMENT")
 def create_collaborator(
-        session:Session,
-        current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
-        first_name: str,
-        last_name: str,
-        email: str,
-        role_id: int,
-        password: str,
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+    first_name: str,
+    last_name: str,
+    email: str,
+    role_id: int,
+    password: str,
 ) -> Collaborator:
     """
     Create a new collaborator account.

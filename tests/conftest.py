@@ -11,9 +11,9 @@ Fixtures are organised as:
 
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from unittest.mock import MagicMock
 
 import pytest
-from unittest.mock import MagicMock
 
 from models.client import Client
 from models.collaborator import Collaborator
@@ -480,7 +480,9 @@ def mock_authenticated_session(monkeypatch):
     )
     return payload
 
+
 # ── Collaborator service setup ──────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def mock_session_empty():

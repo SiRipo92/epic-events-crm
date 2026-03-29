@@ -7,13 +7,16 @@ Tests are organised by function:
     - get_collaborators
     - get_collaborator_by_id
 """
-import pytest
+
 from unittest.mock import MagicMock
+
+import pytest
 
 from exceptions import DuplicateEmailError, PermissionDeniedError
 from services.collaborator_service import (
-create_collaborator,
+    create_collaborator,
 )
+
 
 class TestCreateCollaborator:
     """Tests for the create_collaborator service function."""
@@ -23,7 +26,7 @@ class TestCreateCollaborator:
     # ---------------------------
 
     def test_valid_input_creates_collaborator(
-            self, management_user, mock_session_empty
+        self, management_user, mock_session_empty
     ):
         """Valid input creates a collaborator with correct defaults."""
         result = create_collaborator(
@@ -42,9 +45,7 @@ class TestCreateCollaborator:
         mock_session_empty.add.assert_called_once()
         mock_session_empty.commit.assert_called_once()
 
-    def test_employee_number_is_generated(
-            self, management_user, mock_session_empty
-    ):
+    def test_employee_number_is_generated(self, management_user, mock_session_empty):
         """Employoee number is auto-generated in EMP-XXX format."""
         result = create_collaborator(
             session=mock_session_empty,
@@ -65,7 +66,9 @@ class TestCreateCollaborator:
     def test_duplicate_email_raises(self, management_user):
         """Duplicate email raises DuplicateEmailError."""
         session = MagicMock()
-        session.query.return_value.filter_by.return_value.first.return_value = MagicMock()
+        session.query.return_value.filter_by.return_value.first.return_value = (
+            MagicMock()
+        )
 
         with pytest.raises(DuplicateEmailError):
             create_collaborator(
