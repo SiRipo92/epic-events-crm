@@ -36,6 +36,39 @@ def _generate_employee_number(session: Session) -> str:
     count = session.query(Collaborator).count()
     return f"EMP-{count + 1:03d}"
 
+def _has_active_dossiers(dossiers: dict) -> bool:
+    """
+    Check if any active dossiers exist.
+
+    Args:
+        dossiers: Dict of dossier lists.
+
+    Returns:
+        bool: True if any dossier list is non-empty.
+    """
+    return any(
+        [
+            dossiers["clients"],
+            dossiers["contracts"],
+            dossiers["events"],
+        ]
+    )
+
+def _delete_session_file() -> None:
+    """
+    Delete the current session file if it exists.
+
+    Safe to call even if file is missing.
+    """
+    session_file = settings.session_file
+
+    try:
+        if session_file.exists():
+            session_file.unlink()
+    except OSError:
+        # Defensive: avoid breaking deactivation on filesystem issues
+        pass
+
 def get_active_dossiers(session: Session, collaborator: Collaborator) -> dict:
     """
     Retrieve all active dossiers linked to a collaborator.
@@ -204,29 +237,33 @@ def update_collaborator(
 
 @require_role("MANAGEMENT")
 def deactivate_collaborator(
-        session: Session,
-        current_user: Collaborator,   # noqa: ARG001 — consumed by @require_role
-        collaborator: Collaborator,
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001
+    collaborator: Collaborator,
 ) -> None:
     """
-    Allows a Manager to deactivate an existing collaborator.
+    Deactivate a collaborator after ensuring no active dossiers remain.
+
+    Raises:
+        ReassignmentRequiredError: If active dossiers exist.
     """
 
-    # Step 1 — check for active dossiers
-    dossiers = get_active_dossiers(session=session, collaborator=collaborator)
+    # Step 1 — retrieve active dossiers
+    dossiers = get_active_dossiers(
+        session=session,
+        collaborator=collaborator,
+    )
 
-    if any(dossiers.values()):
-        raise ReassignmentRequiredError(
-            "Collaborator has active dossiers that must be reassigned."
-        )
+    # Step 2 - enforce reassignment rule
+    if _has_active_dossiers(dossiers):
+        # Pass the full dossiers dict for detailed error handling
+        raise ReassignmentRequiredError(dossiers=dossiers)
 
-    # Step 2 — deactivate
+    # Step 3 — deactivate collaborator
     collaborator.is_active = False
 
-    # Step 3 - delete session file if it exists
-    session_file = settings.session_file
-    if session_file.exists():
-        session_file.unlink()
+    # Step 4 - cleanup session
+    _delete_session_file()
 
-    # Step 4 — commit changes
+    # Step 5 — persist changes
     session.commit()
