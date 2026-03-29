@@ -13,7 +13,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from exceptions import DuplicateEmailError, PermissionDeniedError
-from services.collaborator_service import create_collaborator, update_collaborator
+from services.collaborator_service import (
+    create_collaborator,
+    update_collaborator,
+    get_active_dossiers
+)
 
 
 class TestCreateCollaborator:
@@ -197,3 +201,44 @@ class TestUpdateCollaborator:
                 collaborator=target,
                 first_name="Robert",
             )
+
+
+class TestGetActiveDossiers:
+    """Tests for helper that retrieves active dossiers for a collaborator."""
+
+    def test_returns_all_active_dossiers(
+        self,
+        make_collaborator,
+        make_client,
+        make_contract,
+        make_event,
+    ):
+        """Returns clients, contracts, and events linked to collaborator."""
+
+        # ── Arrange ────────────────────────────────────────────────
+        collaborator = make_collaborator(id=42)
+
+        # Fake data returned by queries
+        clients = [make_client(id=1, commercial_id=42)]
+        contracts = [
+            make_contract(id=1, commercial_id=42),
+            make_contract(id=2, commercial_id=42),
+        ]
+        events = [make_event(id=1, support_id=42)]
+
+        session = MagicMock()
+
+        # Mock query chains in order of calls
+        session.query.return_value.filter.return_value.all.side_effect = [
+            clients,    # first call → clients
+            contracts,  # second call → contracts
+            events,     # third call → events
+        ]
+
+        # ── Act ────────────────────────────────────────────────────
+        result = get_active_dossiers(session=session, collaborator=collaborator)
+
+        # ── Assert ─────────────────────────────────────────────────
+        assert result["clients"] == clients
+        assert result["contracts"] == contracts
+        assert result["events"] == events
