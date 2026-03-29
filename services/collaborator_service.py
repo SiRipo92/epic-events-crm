@@ -206,8 +206,9 @@ def deactivate_collaborator(
         session: Session,
         current_user: Collaborator,   # noqa: ARG001 — consumed by @require_role
         collaborator: Collaborator,
-):
+) -> None:
     """
     Allows a Manager to deactivate an existing collaborator.
     """
-    pass
+    collaborator.is_active = False
+    session.commit()
