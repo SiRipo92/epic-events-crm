@@ -465,21 +465,15 @@ def mock_no_token(monkeypatch):
     )
 
 @pytest.fixture
-def mock_payload(monkeypatch):
-    """Mock decoded JWT payload."""
-    payload = {"user_id": 1}
-
-    monkeypatch.setattr(
-        "services.auth_service._decode_token",
-        lambda token: payload
-    )
-
-    return payload
-
-@pytest.fixture
-def mock_valid_token(monkeypatch):
-    """Mock valid JWT payload."""
+def mock_authenticated_session(monkeypatch):
+    """Mock a valid session token and decoded payload for get_session_user tests."""
     monkeypatch.setattr(
         "services.auth_service._read_session_file",
-        lambda: "valid.token"
+        lambda: "valid.token.value",
     )
+    payload = {"user_id": 1}
+    monkeypatch.setattr(
+        "services.auth_service._decode_token",
+        lambda token: payload,
+    )
+    return payload

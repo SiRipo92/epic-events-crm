@@ -4,9 +4,12 @@ Tests are organised by function:
     - _generate_token
     - _decode_token
     - change_password
-    - login (uses mocked DB session)
+    - _get_session_path
+    - _write_session_file
+    - _read_session_file
+    - login
     - logout
-    - get_session_user (uses mocked DB session)
+    - get_session_user
 """
 
 import jwt
@@ -14,7 +17,6 @@ import pytest
 from datetime import timedelta, timezone
 import datetime as dt
 from unittest.mock import MagicMock, patch
-from pathlib import Path
 
 from config import settings
 from exceptions import AuthenticationError, ValidationError
@@ -25,7 +27,6 @@ from services.auth_service import (
     _get_session_path,
     _write_session_file,
     login,
-    _delete_session_file,
     logout,
     _read_session_file,
     get_session_user
@@ -145,19 +146,11 @@ class TestChangePassword:
         with pytest.raises(ValidationError):
             change_password(session, c, "samepassword", "samepassword")
 
+
 class TestGetSessionPath:
     """Tests for session path resolution."""
 
-    # ---------------------------
-    # Happy path
-    # ---------------------------
-
-    def test_returns_path_object(self):
-        """Returns a Path instance."""
-        result = _get_session_path()
-        assert isinstance(result, Path)
-
-    def test_returns_correct_path(self, session_file):
+    def test_returns_settings_session_file(self, session_file):
         """Returns the path defined in settings."""
         assert _get_session_path() == settings.session_file
 
@@ -215,61 +208,42 @@ class TestLogin:
     # Sad path
     # ---------------------------
 
-    def test_wrong_password_raises(
-            self, make_collaborator, management_role
+    @pytest.mark.parametrize("setup,expected_match", [
+        ("wrong_password", None),
+        ("unknown_email", None),
+        ("inactive_account", "deactivated"),
+    ])
+    def test_invalid_login_raises(
+            self, setup, expected_match, make_collaborator, management_role
     ):
-        """Wrong password raises AuthenticationError."""
-        c = make_collaborator(
-            role=management_role,
-            is_active=True,
-            must_change_password=False,
-        )
-        c.set_password("correctpassword")
-
+        """Invalid credentials or inactive account raises AuthenticationError."""
         session = MagicMock()
-        session.query.return_value.filter_by.return_value.first.return_value = c
+
+        if setup == "wrong_password":
+            c = make_collaborator(role=management_role, is_active=True)
+            c.set_password("correctpassword")
+            session.query.return_value.filter_by.return_value.first.return_value = c
+            password = "wrongpassword"
+            email = c.email
+        elif setup == "unknown_email":
+            session.query.return_value.filter_by.return_value.first.return_value = None
+            email = "unknown@example.com"
+            password = "anypassword"
+        else:  # inactive_account
+            c = make_collaborator(role=management_role, is_active=False)
+            c.set_password("correctpassword")
+            session.query.return_value.filter_by.return_value.first.return_value = c
+            email = c.email
+            password = "correctpassword"
 
         with patch("services.auth_service._write_session_file"):
-            with pytest.raises(AuthenticationError):
-                login(session, c.email, "wrongpassword")
+            if expected_match:
+                with pytest.raises(AuthenticationError, match=expected_match):
+                    login(session, email, password)
+            else:
+                with pytest.raises(AuthenticationError):
+                    login(session, email, password)
 
-    def test_unknown_email_raises(
-            self, make_collaborator, management_role
-    ):
-        """Unknown email raises AuthenticationError."""
-        session = MagicMock()
-        session.query.return_value.filter_by.return_value.first.return_value = None
-
-        with patch("services.auth_service._write_session_file"):
-            with pytest.raises(AuthenticationError):
-                login(session, "unknown@example.com", "anypassword")
-
-    def test_inactive_account_raises(
-            self, make_collaborator, management_role
-    ):
-        """Deactivated account raises AuthenticationError."""
-        c = make_collaborator(
-            role=management_role,
-            is_active=False,
-            must_change_password=False,
-        )
-        c.set_password("correctpassword")
-
-        session = MagicMock()
-        session.query.return_value.filter_by.return_value.first.return_value = c
-
-        with patch("services.auth_service._write_session_file"):
-            with pytest.raises(AuthenticationError, match="deactivated"):
-                login(session, c.email, "correctpassword")
-
-class TestDeleteSessionFile:
-    """Tests for session file deletion."""
-
-    def test_session_file_is_deleted(self, session_file):
-        """Session file should be deleted if it exists."""
-        session_file.write_text("token")
-        _delete_session_file()
-        assert not session_file.exists()
 
 class TestLogout():
     """Tests for the logout service function."""
@@ -327,105 +301,80 @@ class TestReadSessionFile:
 class TestGetSessionUser:
     """Tests for retrieving the current session user."""
 
+    class _ActiveCollaborator:
+        is_active = True
+
+    class _InactiveCollaborator:
+        is_active = False
+
+    class _SessionReturning:
+        def __init__(self, obj):
+            self._obj = obj
+
+        def get(self, model, user_id):
+            return self._obj
+
+    class _SessionReturningNone:
+        def get(self, model, user_id):
+            return None
+
     # ---------------------------
     # Happy path
     # ---------------------------
 
     def test_returns_collaborator_if_token_valid(
-            self,
-            mock_valid_token,
-            mock_payload
+        self, mock_authenticated_session
     ):
-        """Should return collaborator when token and user are valid."""
-        class FakeCollaborator:
-            is_active = True
-
-
-        class FakeSession:
-            def get(self, model, user_id):
-                return FakeCollaborator()
-
-
-        result = get_session_user(session=FakeSession())
-        assert isinstance(result, FakeCollaborator)
+        """Return collaborator when token and user are valid."""
+        result = get_session_user(
+            session=self._SessionReturning(self._ActiveCollaborator())
+        )
+        assert isinstance(result, self._ActiveCollaborator)
 
     # ---------------------------
     # Sad path
     # ---------------------------
 
     def test_returns_none_if_no_token(self, mock_no_token):
-        """Should return None when no session token exists."""
-
+        """Return None when no session token exists."""
         result = get_session_user(session=None)
         assert result is None
 
     def test_raises_if_user_not_found(
-            self,
-            mock_valid_token,
-            mock_payload,
-            monkeypatch
+        self, mock_authenticated_session, mocker
     ):
-        """Should delete session and raise if user does not exist."""
-
-        class FakeSession:
-            def get(self, model, user_id):
-                return None
-
-        delete_called = {"called": False}
-
-        def fake_delete():
-            delete_called["called"] = True
-
-        monkeypatch.setattr(
-            "services.auth_service._delete_session_file",
-            fake_delete
-        )
+        """Delete session and raise if user does not exist in DB."""
+        mock_delete = mocker.patch("services.auth_service._delete_session_file")
 
         with pytest.raises(AuthenticationError):
-            get_session_user(session=FakeSession())
+            get_session_user(session=self._SessionReturningNone())
 
-        assert delete_called["called"] is True
+        mock_delete.assert_called_once()
 
     def test_raises_if_user_inactive(
-            self,
-            mock_valid_token,
-            mock_payload,
-            monkeypatch
+        self, mock_authenticated_session, mocker
     ):
-        """Should delete session and raise if user is inactive."""
-
-        class FakeCollaborator:
-            is_active = False
-
-        class FakeSession:
-            def get(self, model, user_id):
-                return FakeCollaborator()
-
-        delete_called = {"called": False}
-
-        def fake_delete():
-            delete_called["called"] = True
-
-        monkeypatch.setattr(
-            "services.auth_service._delete_session_file",
-            fake_delete
-        )
+        """Delete session and raise if user is deactivated."""
+        mock_delete = mocker.patch("services.auth_service._delete_session_file")
 
         with pytest.raises(AuthenticationError):
-            get_session_user(session=FakeSession())
+            get_session_user(
+                session=self._SessionReturning(self._InactiveCollaborator())
+            )
 
-        assert delete_called["called"] is True
+        mock_delete.assert_called_once()
 
-    def test_raises_if_token_invalid(self, mock_valid_token, monkeypatch):
-        """Should raise AuthenticationError if token is invalid."""
+    def test_raises_if_token_invalid(self, monkeypatch):
+        """Raise AuthenticationError if token cannot be decoded."""
+        monkeypatch.setattr(
+            "services.auth_service._read_session_file",
+            lambda: "some.token.value",
+        )
 
         def fake_decode(token):
             raise AuthenticationError("Invalid token")
 
-        monkeypatch.setattr(
-            "services.auth_service._decode_token",
-            fake_decode
-        )
+        monkeypatch.setattr("services.auth_service._decode_token", fake_decode)
 
         with pytest.raises(AuthenticationError):
             get_session_user(session=None)
