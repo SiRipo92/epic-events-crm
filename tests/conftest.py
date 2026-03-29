@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
+from unittest.mock import MagicMock
 
 from models.client import Client
 from models.collaborator import Collaborator
@@ -478,3 +479,13 @@ def mock_authenticated_session(monkeypatch):
         lambda token: payload,
     )
     return payload
+
+# ── Collaborator service setup ──────────────────────────────────────────────────────
+
+@pytest.fixture
+def mock_session_empty():
+    """Return a MagicMock session with no existing collaborators."""
+    session = MagicMock()
+    session.query.return_value.filter_by.return_value.first.return_value = None
+    session.query.return_value.count.return_value = 0
+    return session

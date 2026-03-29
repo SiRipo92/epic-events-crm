@@ -12,19 +12,34 @@ from sqlalchemy.orm import Session
 
 from exceptions import DuplicateEmailError
 from models.collaborator import Collaborator
-from models.role import Role
 from permissions.decorators import require_role
 
+# ── Collaborator creation helpers ───────────────────────────────────────────────────────
+
+def _generate_employee_number(session: Session) -> str:
+    """Generate the next sequential employee number.
+
+    Counts all collaborators regardless of active status to ensure
+    numbers are never reused after deactivation.
+
+    Args:
+        session: SQLAlchemy database session.
+
+    Returns:
+        str: Employee number in EMP-XXX format.
+    """
+    count = session.query(Collaborator).count()
+    return f"EMP-{count + 1:03d}"
 
 @require_role("MANAGEMENT")
 def create_collaborator(
         session:Session,
-        current_user: Collaborator,
+        current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
         first_name: str,
         last_name: str,
         email: str,
         role_id: int,
-        password: str
+        password: str,
 ) -> Collaborator:
     """
     Create a new collaborator account.
@@ -32,6 +47,7 @@ def create_collaborator(
     Args:
         session: SQLAlchemy database session.
         current_user: The authenticated Management collaborator.
+                    Consumed by @require_role — not used in the function body.
         first_name: New collaborator's first name.
         last_name: New collaborator's last name.
         email: New collaborator's email address — must be unique.
@@ -52,7 +68,12 @@ def create_collaborator(
             f"A collaborator with email '{email}' already exists."
         )
 
+    # Step 2 — generate employee number
+    employee_number = _generate_employee_number(session)
+
+    # Step 3 - create the collaborator
     collaborator = Collaborator()
+    collaborator.employee_number = employee_number
     collaborator.first_name = first_name
     collaborator.last_name = last_name
     collaborator.email = email
