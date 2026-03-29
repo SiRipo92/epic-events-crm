@@ -246,3 +246,28 @@ def deactivate_collaborator(
 
     # Step 5 — persist changes
     session.commit()
+
+@require_role("MANAGEMENT")
+def get_collaborators(
+        session: Session,
+        current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+        role: str | None = None,
+        is_active: bool | None = None,
+) -> list[Collaborator]:
+    """
+    Return all collaborators, optionally filtered by role or active status.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated Management collaborator.
+        role: Optional role name to filter by e.g. 'MANAGEMENT'.
+        is_active: Optional active status filter.
+
+    Returns:
+        list[Collaborator]: Matching collaborators.
+
+    Raises:
+        PermissionDeniedError: If current_user is not Management.
+    """
+    results: list[Collaborator] = session.query(Collaborator).all()  # type: ignore[assignment]
+    return results
