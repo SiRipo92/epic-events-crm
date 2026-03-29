@@ -13,9 +13,9 @@ from sqlalchemy.orm import Session
 from exceptions import DuplicateEmailError, ReassignmentRequiredError
 from models.client import Client
 from models.collaborator import Collaborator
-from models.role import Role
 from models.contract import Contract, ContractStatus
 from models.event import Event
+from models.role import Role
 from permissions.decorators import require_role
 from services.auth_service import _delete_session_file
 
@@ -248,12 +248,13 @@ def deactivate_collaborator(
     # Step 5 — persist changes
     session.commit()
 
+
 @require_role("MANAGEMENT")
 def get_collaborators(
-        session: Session,
-        current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
-        role: str | None = None,
-        is_active: bool | None = None,
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+    role: str | None = None,
+    is_active: bool | None = None,
 ) -> list[Collaborator]:
     """
     Return all collaborators, optionally filtered by role or active status.
