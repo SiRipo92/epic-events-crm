@@ -525,11 +525,7 @@ class TestGetCollaborators:
 
         session = MagicMock()
         mock_query = (
-            session.query.return_value
-            .join.return_value
-            .filter.return_value
-            .filter.return_value
-            .all
+            session.query.return_value.join.return_value.filter.return_value.filter.return_value.all
         )
         mock_query.return_value = [active_manager]
 
