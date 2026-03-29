@@ -15,6 +15,7 @@ from models.collaborator import Collaborator
 from models.client import Client
 from models.contract import Contract, ContractStatus
 from models.event import Event
+from services.auth_service import settings
 from permissions.decorators import require_role
 
 # ── Collaborator helpers ─────────────────────────────────────────────────────
@@ -221,4 +222,11 @@ def deactivate_collaborator(
 
     # Step 2 — deactivate
     collaborator.is_active = False
+
+    # Step 3 - delete session file if it exists
+    session_file = settings.session_file
+    if session_file.exists():
+        session_file.unlink()
+
+    # Step 4 — commit changes
     session.commit()
