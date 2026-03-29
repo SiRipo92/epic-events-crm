@@ -157,3 +157,22 @@ class TestUpdateCollaborator:
                 collaborator=target,
                 email="already.taken@epicevents.com",
             )
+
+    def test_non_management_caller_raises(
+            self, commercial_user, make_collaborator, management_role
+    ):
+        """Non-Management caller raises PermissionDeniedError."""
+        target = make_collaborator(
+            id=2,
+            email="bob.dupont@epicevents.com",
+            role=management_role,
+        )
+        session = MagicMock()
+
+        with pytest.raises(PermissionDeniedError):
+            update_collaborator(
+                session=session,
+                current_user=commercial_user,
+                collaborator=target,
+                first_name="Robert",
+            )
