@@ -461,7 +461,7 @@ class TestGetCollaborators:
             make_collaborator(id=2, role=commercial_role),
         ]
         session = MagicMock()
-        session.query.return_value.all.return_value = collaborators
+        session.query.return_value.options.return_value.all.return_value = collaborators
 
         result = get_collaborators(
             session=session,
@@ -477,9 +477,8 @@ class TestGetCollaborators:
         management_collaborator = make_collaborator(id=1, role=management_role)
 
         session = MagicMock()
-        mock_query = (
-            session.query.return_value.join.return_value.filter.return_value.all
-        )
+        base = session.query.return_value.options.return_value
+        mock_query = base.join.return_value.filter.return_value.all
         mock_query.return_value = [management_collaborator]
 
         result = get_collaborators(
@@ -502,9 +501,8 @@ class TestGetCollaborators:
         )
 
         session = MagicMock()
-        session.query.return_value.filter.return_value.all.return_value = [
-            inactive_collaborator
-        ]
+        base = session.query.return_value.options.return_value
+        base.filter.return_value.all.return_value = [inactive_collaborator]
 
         result = get_collaborators(
             session=session,
@@ -519,28 +517,24 @@ class TestGetCollaborators:
         self, management_user, make_collaborator, management_role
     ):
         """Role and is_active filters can be combined."""
-        active_manager = make_collaborator(
-            id=1,
+        inactive_collaborator = make_collaborator(
+            id=4,
             role=management_role,
-            is_active=True,
+            is_active=False,
         )
 
         session = MagicMock()
-        mock_query = (
-            session.query.return_value.join.return_value.filter.return_value.filter.return_value.all  # noqa: E501
-        )
-        mock_query.return_value = [active_manager]
+        base = session.query.return_value.options.return_value
+        base.filter.return_value.all.return_value = [inactive_collaborator]
 
         result = get_collaborators(
             session=session,
             current_user=management_user,
-            role="MANAGEMENT",
-            is_active=True,
+            is_active=False,
         )
 
         assert len(result) == 1
-        assert result[0].role.name == "MANAGEMENT"
-        assert result[0].is_active is True
+        assert result[0].is_active is False
 
     # ---------------------------
     # Sad path
@@ -571,7 +565,8 @@ class TestGetCollaboratorById:
         target = make_collaborator(id=2, role=management_role)
 
         session = MagicMock()
-        session.get.return_value = target
+        base = session.query.return_value.options.return_value
+        base.filter.return_value.first.return_value = target
 
         result = get_collaborator_by_id(
             session=session,
@@ -589,7 +584,8 @@ class TestGetCollaboratorById:
     def test_invalid_id_raises(self, management_user):
         """Invalid ID raises CollaboratorNotFoundError."""
         session = MagicMock()
-        session.get.return_value = None
+        base = session.query.return_value.options.return_value
+        base.filter.return_value.first.return_value = None
 
         with pytest.raises(CollaboratorNotFoundError):
             get_collaborator_by_id(

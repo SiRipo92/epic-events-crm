@@ -8,7 +8,7 @@ via the @require_role decorator.
 
 from __future__ import annotations
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from exceptions import (
     CollaboratorNotFoundError,
@@ -275,7 +275,7 @@ def get_collaborators(
     Raises:
         PermissionDeniedError: If current_user is not Management.
     """
-    query = session.query(Collaborator)
+    query = session.query(Collaborator).options(joinedload(Collaborator.role))
 
     if role is not None:
         query = query.join(Role).filter(Role.name == role)
@@ -307,7 +307,12 @@ def get_collaborator_by_id(
         PermissionDeniedError: If current_user is not Management.
         CollaboratorNotFoundError: If no collaborator exists with that ID.
     """
-    collaborator: Collaborator | None = session.get(Collaborator, collaborator_id)
+    collaborator: Collaborator | None = (
+        session.query(Collaborator)
+        .options(joinedload(Collaborator.role))
+        .filter(Collaborator.id == collaborator_id)
+        .first()
+    )
 
     if not collaborator:
         raise CollaboratorNotFoundError(
