@@ -445,3 +445,32 @@ class TestDeactivateCollaborator:
                 )
 
         session.commit.assert_not_called()
+
+    def test_no_error_if_session_file_missing(
+            self,
+            management_user,
+            make_collaborator,
+            session_file,
+    ):
+        """No error occurs if session file does not exist."""
+
+        collaborator = make_collaborator(id=42)
+
+        session = MagicMock()
+
+        # Ensure file does not exist
+        if session_file.exists():
+            session_file.unlink()
+
+        with patch(
+                "services.collaborator_service.get_active_dossiers",
+                return_value={"clients": [], "contracts": [], "events": []},
+        ):
+            deactivate_collaborator(
+                session=session,
+                current_user=management_user,
+                collaborator=collaborator,
+            )
+
+        # If no exception → test passes
+        session.commit.assert_called_once()
