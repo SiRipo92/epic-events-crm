@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from exceptions import (
     CollaboratorNotFoundError,
     DuplicateEmailError,
-    ReassignmentRequiredError
+    ReassignmentRequiredError,
 )
 from models.client import Client
 from models.collaborator import Collaborator
@@ -307,8 +307,6 @@ def get_collaborator_by_id(
         PermissionDeniedError: If current_user is not Management.
         CollaboratorNotFoundError: If no collaborator exists with that ID.
     """
-    from exceptions import CollaboratorNotFoundError
-
     collaborator: Collaborator | None = session.get(Collaborator, collaborator_id)
 
     if not collaborator:

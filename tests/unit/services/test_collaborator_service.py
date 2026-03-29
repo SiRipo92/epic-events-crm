@@ -23,8 +23,8 @@ from services.collaborator_service import (
     create_collaborator,
     deactivate_collaborator,
     get_active_dossiers,
-    get_collaborators,
     get_collaborator_by_id,
+    get_collaborators,
     update_collaborator,
 )
 
