@@ -102,9 +102,7 @@ class TestUpdateCollaborator:
     # Happy path
     # ---------------------------
 
-    def test_valid_update_persists_fields(
-        self, management_user, make_collaborator
-    ):
+    def test_valid_update_persists_fields(self, management_user, make_collaborator):
         """Valid update persists changed fields and commits."""
         target = make_collaborator(
             id=2,
@@ -181,7 +179,9 @@ class TestUpdateCollaborator:
             )
 
     def test_non_management_caller_raises(
-        self, commercial_user, make_collaborator,
+        self,
+        commercial_user,
+        make_collaborator,
     ):
         """Non-Management caller raises PermissionDeniedError."""
         target = make_collaborator(
