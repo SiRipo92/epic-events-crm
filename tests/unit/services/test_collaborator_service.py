@@ -8,12 +8,22 @@ Tests are organised by function:
     - get_collaborator_by_id
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from exceptions import DuplicateEmailError, PermissionDeniedError
-from services.collaborator_service import create_collaborator, update_collaborator
+from exceptions import (
+    DuplicateEmailError,
+    PermissionDeniedError,
+    ReassignmentRequiredError,
+)
+from models.contract import ContractStatus
+from services.collaborator_service import (
+    create_collaborator,
+    deactivate_collaborator,
+    get_active_dossiers,
+    update_collaborator,
+)
 
 
 class TestCreateCollaborator:
@@ -197,3 +207,260 @@ class TestUpdateCollaborator:
                 collaborator=target,
                 first_name="Robert",
             )
+
+
+class TestGetActiveDossiers:
+    """Tests for helper that retrieves active dossiers for a collaborator."""
+
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
+    def test_returns_all_active_dossiers(
+        self,
+        make_collaborator,
+        make_client,
+        make_contract,
+        make_event,
+    ):
+        """Returns clients, contracts, and events linked to collaborator."""
+        # ── Arrange ────────────────────────────────────────────────
+        collaborator = make_collaborator(id=42)
+
+        # Fake data returned by queries
+        clients = [make_client(id=1, commercial_id=42)]
+        contracts = [
+            make_contract(id=1, commercial_id=42),
+            make_contract(id=2, commercial_id=42),
+        ]
+        events = [make_event(id=1, support_id=42)]
+
+        session = MagicMock()
+
+        # Mock query chains in order of calls
+        session.query.return_value.filter.return_value.all.side_effect = [
+            clients,  # first call → clients
+            contracts,  # second call → contracts
+            events,  # third call → events
+        ]
+
+        # ── Act ────────────────────────────────────────────────────
+        result = get_active_dossiers(session=session, collaborator=collaborator)
+
+        # ── Assert ─────────────────────────────────────────────────
+        assert result["clients"] == clients
+        assert result["contracts"] == contracts
+        assert result["events"] == events
+
+    def test_all_clients_are_returned(
+        self,
+        make_collaborator,
+        make_client,
+    ):
+        """All clients linked to collaborator are returned."""
+        collaborator = make_collaborator(id=42)
+
+        clients = [
+            make_client(id=1, commercial_id=42),
+            make_client(id=2, commercial_id=42),
+        ]
+
+        session = MagicMock()
+        session.query.return_value.filter.return_value.all.side_effect = [
+            clients,
+            [],
+            [],
+        ]
+
+        result = get_active_dossiers(session=session, collaborator=collaborator)
+
+        assert result["clients"] == clients
+
+    # ---------------------------
+    # Sad path
+    # ---------------------------
+
+    def test_returns_empty_lists_when_no_dossiers(
+        self,
+        make_collaborator,
+    ):
+        """Returns empty lists when collaborator has no linked dossiers."""
+        collaborator = make_collaborator(id=42)
+
+        session = MagicMock()
+        session.query.return_value.filter.return_value.all.side_effect = [
+            [],  # clients
+            [],  # contracts
+            [],  # events
+        ]
+
+        result = get_active_dossiers(session=session, collaborator=collaborator)
+
+        assert result == {
+            "clients": [],
+            "contracts": [],
+            "events": [],
+        }
+
+    def test_excludes_cancelled_and_paid_contracts(
+        self,
+        make_collaborator,
+        make_contract,
+    ):
+        """Contracts with CANCELLED or PAID_IN_FULL status are excluded."""
+        collaborator = make_collaborator(id=42)
+
+        active_contract = make_contract(id=1, commercial_id=42)
+        cancelled_contract = make_contract(id=2, commercial_id=42)
+        cancelled_contract.status = ContractStatus.CANCELLED
+
+        paid_contract = make_contract(id=3, commercial_id=42)
+        paid_contract.status = ContractStatus.PAID_IN_FULL
+
+        session = MagicMock()
+        session.query.return_value.filter.return_value.all.side_effect = [
+            [],  # clients
+            [active_contract],  # contracts → DB already filtered
+            [],  # events
+        ]
+
+        result = get_active_dossiers(session=session, collaborator=collaborator)
+
+        assert active_contract in result["contracts"]
+
+    def test_excludes_cancelled_events(
+        self,
+        make_collaborator,
+        make_event,
+    ):
+        """Cancelled events are excluded from active dossiers."""
+        collaborator = make_collaborator(id=42)
+
+        active_event = make_event(id=1, support_id=42, is_cancelled=False)
+
+        session = MagicMock()
+        session.query.return_value.filter.return_value.all.side_effect = [
+            [],  # clients
+            [],  # contracts
+            [active_event],  # events → DB already filtered
+        ]
+
+        result = get_active_dossiers(session=session, collaborator=collaborator)
+
+        assert active_event in result["events"]
+
+
+class TestDeactivateCollaborator:
+    """Tests for the deactivate_collaborator service function."""
+
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
+    def test_deactivates_collaborator_when_no_dossiers(
+        self,
+        management_user,
+        make_collaborator,
+    ):
+        """Collaborator is deactivated when no active dossiers exist."""
+        collaborator = make_collaborator(id=42, is_active=True)
+        session = MagicMock()
+
+        with patch(
+            "services.collaborator_service.get_active_dossiers",
+            return_value={"clients": [], "contracts": [], "events": []},
+        ):
+            deactivate_collaborator(
+                session=session,
+                current_user=management_user,
+                collaborator=collaborator,
+            )
+
+        assert collaborator.is_active is False
+        session.commit.assert_called_once()
+
+    def test_session_file_deleted_on_deactivation(
+        self,
+        management_user,
+        make_collaborator,
+        session_file,
+    ):
+        """Session file is deleted if it exists."""
+        collaborator = make_collaborator(id=42)
+        session_file.write_text("token")
+        session = MagicMock()
+
+        with patch(
+            "services.collaborator_service.get_active_dossiers",
+            return_value={"clients": [], "contracts": [], "events": []},
+        ):
+            deactivate_collaborator(
+                session=session,
+                current_user=management_user,
+                collaborator=collaborator,
+            )
+
+        assert not session_file.exists()
+
+    # ---------------------------
+    # Sad path
+    # ---------------------------
+
+    @pytest.mark.parametrize(
+        "dossiers",
+        [
+            {"clients": ["client"], "contracts": [], "events": []},
+            {"clients": [], "contracts": ["contract"], "events": []},
+            {"clients": [], "contracts": [], "events": ["event"]},
+        ],
+    )
+    def test_raises_if_any_active_dossier_exists(
+        self,
+        management_user,
+        make_collaborator,
+        dossiers,
+    ):
+        """Raises ReassignmentRequiredError with dossiers details if any exist."""
+        collaborator = make_collaborator(id=42)
+        session = MagicMock()
+
+        with patch(
+            "services.collaborator_service.get_active_dossiers",
+            return_value=dossiers,
+        ):
+            with pytest.raises(ReassignmentRequiredError) as exc_info:
+                deactivate_collaborator(
+                    session=session,
+                    current_user=management_user,
+                    collaborator=collaborator,
+                )
+        # The exception should carry the exact dossiers dict
+        assert exc_info.value.dossiers == dossiers
+        session.commit.assert_not_called()
+
+    def test_no_error_if_session_file_missing(
+        self,
+        management_user,
+        make_collaborator,
+        session_file,
+    ):
+        """No error occurs if session file does not exist."""
+        collaborator = make_collaborator(id=42)
+        session = MagicMock()
+
+        # Ensure file does not exist
+        if session_file.exists():
+            session_file.unlink()
+
+        with patch(
+            "services.collaborator_service.get_active_dossiers",
+            return_value={"clients": [], "contracts": [], "events": []},
+        ):
+            deactivate_collaborator(
+                session=session,
+                current_user=management_user,
+                collaborator=collaborator,
+            )
+
+        # If no exception → test passes
+        session.commit.assert_called_once()

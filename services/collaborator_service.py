@@ -10,11 +10,15 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from exceptions import DuplicateEmailError
+from exceptions import DuplicateEmailError, ReassignmentRequiredError
+from models.client import Client
 from models.collaborator import Collaborator
+from models.contract import Contract, ContractStatus
+from models.event import Event
 from permissions.decorators import require_role
+from services.auth_service import settings
 
-# ── Collaborator creation helpers ─────────────────────────────────────────────────────
+# ── Collaborator helpers ─────────────────────────────────────────────────────
 
 
 def _generate_employee_number(session: Session) -> str:
@@ -31,6 +35,91 @@ def _generate_employee_number(session: Session) -> str:
     """
     count = session.query(Collaborator).count()
     return f"EMP-{count + 1:03d}"
+
+
+def _has_active_dossiers(dossiers: dict) -> bool:
+    """
+    Check if any active dossiers exist.
+
+    Args:
+        dossiers: Dict of dossier lists.
+
+    Returns:
+        bool: True if any dossier list is non-empty.
+    """
+    return any(
+        [
+            dossiers["clients"],
+            dossiers["contracts"],
+            dossiers["events"],
+        ]
+    )
+
+
+def _delete_session_file() -> None:
+    """
+    Delete the current session file if it exists.
+
+    Safe to call even if file is missing.
+    """
+    session_file = settings.session_file
+
+    try:
+        if session_file.exists():
+            session_file.unlink()
+    except OSError:
+        # Defensive: avoid breaking deactivation on filesystem issues
+        pass
+
+
+def get_active_dossiers(session: Session, collaborator: Collaborator) -> dict:
+    """
+    Retrieve all active dossiers linked to a collaborator.
+
+    Args:
+        session: SQLAlchemy database session.
+        collaborator: The collaborator to inspect.
+
+    Returns:
+        dict: {
+            "clients": list[Client],
+            "contracts": list[Contract],
+            "events": list[Event],
+        }
+    """
+    # ── Clients ────────────────────────────────────────────────
+    clients = (
+        session.query(Client).filter(Client.commercial_id == collaborator.id).all()
+    )
+
+    # ── Contracts (exclude CANCELLED + PAID_IN_FULL) ───────────
+    contracts = (
+        session.query(Contract)
+        .filter(
+            Contract.commercial_id == collaborator.id,
+            Contract.status.notin_(
+                [ContractStatus.CANCELLED, ContractStatus.PAID_IN_FULL]
+            ),
+        )
+        .all()
+    )
+
+    # ── Events (only active, not cancelled) ────────────────────
+    events = (
+        session.query(Event)
+        .filter(
+            Event.support_id == collaborator.id,
+            Event.is_cancelled.is_(False),
+        )
+        .all()
+    )
+
+    # ── Return structured result ───────────────────────────────
+    return {
+        "clients": clients,
+        "contracts": contracts,
+        "events": events,
+    }
 
 
 # ── Public Interface ─────────────────────────────────────────────────────────────────
@@ -146,3 +235,36 @@ def update_collaborator(
 
     session.commit()
     return collaborator
+
+
+@require_role("MANAGEMENT")
+def deactivate_collaborator(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001
+    collaborator: Collaborator,
+) -> None:
+    """
+    Deactivate a collaborator after ensuring no active dossiers remain.
+
+    Raises:
+        ReassignmentRequiredError: If active dossiers exist.
+    """
+    # Step 1 — retrieve active dossiers
+    dossiers = get_active_dossiers(
+        session=session,
+        collaborator=collaborator,
+    )
+
+    # Step 2 - enforce reassignment rule
+    if _has_active_dossiers(dossiers):
+        # Pass the full dossiers dict for detailed error handling
+        raise ReassignmentRequiredError(dossiers=dossiers)
+
+    # Step 3 — deactivate collaborator
+    collaborator.is_active = False
+
+    # Step 4 - cleanup session
+    _delete_session_file()
+
+    # Step 5 — persist changes
+    session.commit()
