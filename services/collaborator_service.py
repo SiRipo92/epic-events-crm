@@ -16,7 +16,7 @@ from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
 from models.event import Event
 from permissions.decorators import require_role
-from services.auth_service import settings
+from services.auth_service import _delete_session_file
 
 # ── Collaborator helpers ─────────────────────────────────────────────────────
 
@@ -47,29 +47,7 @@ def _has_active_dossiers(dossiers: dict) -> bool:
     Returns:
         bool: True if any dossier list is non-empty.
     """
-    return any(
-        [
-            dossiers["clients"],
-            dossiers["contracts"],
-            dossiers["events"],
-        ]
-    )
-
-
-def _delete_session_file() -> None:
-    """
-    Delete the current session file if it exists.
-
-    Safe to call even if file is missing.
-    """
-    session_file = settings.session_file
-
-    try:
-        if session_file.exists():
-            session_file.unlink()
-    except OSError:
-        # Defensive: avoid breaking deactivation on filesystem issues
-        pass
+    return any(dossiers.values())
 
 
 def get_active_dossiers(session: Session, collaborator: Collaborator) -> dict:
@@ -260,7 +238,7 @@ def deactivate_collaborator(
         # Pass the full dossiers dict for detailed error handling
         raise ReassignmentRequiredError(dossiers=dossiers)
 
-    # Step 3 — deactivate collaborator
+    # Step 3 - deactivate collaborator
     collaborator.is_active = False
 
     # Step 4 - cleanup session

@@ -252,30 +252,6 @@ class TestGetActiveDossiers:
         assert result["contracts"] == contracts
         assert result["events"] == events
 
-    def test_all_clients_are_returned(
-        self,
-        make_collaborator,
-        make_client,
-    ):
-        """All clients linked to collaborator are returned."""
-        collaborator = make_collaborator(id=42)
-
-        clients = [
-            make_client(id=1, commercial_id=42),
-            make_client(id=2, commercial_id=42),
-        ]
-
-        session = MagicMock()
-        session.query.return_value.filter.return_value.all.side_effect = [
-            clients,
-            [],
-            [],
-        ]
-
-        result = get_active_dossiers(session=session, collaborator=collaborator)
-
-        assert result["clients"] == clients
-
     # ---------------------------
     # Sad path
     # ---------------------------
@@ -311,11 +287,11 @@ class TestGetActiveDossiers:
         collaborator = make_collaborator(id=42)
 
         active_contract = make_contract(id=1, commercial_id=42)
-        cancelled_contract = make_contract(id=2, commercial_id=42)
-        cancelled_contract.status = ContractStatus.CANCELLED
+        cancelled = make_contract(id=2, commercial_id=42)
+        cancelled.status = ContractStatus.CANCELLED
 
-        paid_contract = make_contract(id=3, commercial_id=42)
-        paid_contract.status = ContractStatus.PAID_IN_FULL
+        paid = make_contract(id=3, commercial_id=42)
+        paid.status = ContractStatus.PAID_IN_FULL
 
         session = MagicMock()
         session.query.return_value.filter.return_value.all.side_effect = [
