@@ -10,11 +10,14 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from exceptions import DuplicateEmailError
+from exceptions import DuplicateEmailError, ReassignmentRequiredError
 from models.collaborator import Collaborator
+from models.client import Client
+from models.contract import Contract, ContractStatus
+from models.event import Event
 from permissions.decorators import require_role
 
-# ── Collaborator creation helpers ─────────────────────────────────────────────────────
+# ── Collaborator helpers ─────────────────────────────────────────────────────
 
 
 def _generate_employee_number(session: Session) -> str:
@@ -32,6 +35,57 @@ def _generate_employee_number(session: Session) -> str:
     count = session.query(Collaborator).count()
     return f"EMP-{count + 1:03d}"
 
+def get_active_dossiers(session: Session, collaborator: Collaborator) -> dict:
+    """
+    Retrieve all active dossiers linked to a collaborator.
+
+    Args:
+        session: SQLAlchemy database session.
+        collaborator: The collaborator to inspect.
+
+    Returns:
+        dict: {
+            "clients": list[Client],
+            "contracts": list[Contract],
+            "events": list[Event],
+        }
+    """
+
+    # ── Clients ────────────────────────────────────────────────
+    clients = (
+        session.query(Client)
+        .filter(Client.commercial_id == collaborator.id)
+        .all()
+    )
+
+    # ── Contracts (exclude CANCELLED + PAID_IN_FULL) ───────────
+    contracts = (
+        session.query(Contract)
+        .filter(
+            Contract.commercial_id == collaborator.id,
+            Contract.status.notin_(
+                [ContractStatus.CANCELLED, ContractStatus.PAID_IN_FULL]
+            ),
+        )
+        .all()
+    )
+
+    # ── Events (only active, not cancelled) ────────────────────
+    events = (
+        session.query(Event)
+        .filter(
+            Event.support_id == collaborator.id,
+            Event.is_cancelled.is_(False),
+        )
+        .all()
+    )
+
+    # ── Return structured result ───────────────────────────────
+    return {
+        "clients": clients,
+        "contracts": contracts,
+        "events": events,
+    }
 
 # ── Public Interface ─────────────────────────────────────────────────────────────────
 
@@ -146,3 +200,14 @@ def update_collaborator(
 
     session.commit()
     return collaborator
+
+@require_role("MANAGEMENT")
+def deactivate_collaborator(
+        session: Session,
+        current_user: Collaborator,   # noqa: ARG001 — consumed by @require_role
+        collaborator: Collaborator,
+):
+    """
+    Allows a Manager to deactivate an existing collaborator.
+    """
+    pass
