@@ -128,3 +128,32 @@ class TestUpdateCollaborator:
 
         assert result.first_name == "Robert"
         session.commit.assert_called_once()
+
+    # ---------------------------
+    # Sad path
+    # ---------------------------
+
+    def test_duplicate_email_on_update_raises(
+            self, management_user, make_collaborator, management_role
+    ):
+        """Updating to an existing email raises DuplicateEmailError."""
+        target = make_collaborator(
+            id=2,
+            email="bob.dupont@epicevents.com",
+            role=management_role,
+        )
+        existing = make_collaborator(
+            id=3,
+            email="already.taken@epicevents.com",
+            role=management_role,
+        )
+        session = MagicMock()
+        session.query.return_value.filter_by.return_value.first.return_value = existing
+
+        with pytest.raises(DuplicateEmailError):
+            update_collaborator(
+                session=session,
+                current_user=management_user,
+                collaborator=target,
+                email="already.taken@epicevents.com",
+            )
