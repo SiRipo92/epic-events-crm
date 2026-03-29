@@ -16,6 +16,7 @@ from permissions.decorators import require_role
 
 # ── Collaborator creation helpers ─────────────────────────────────────────────────────
 
+
 def _generate_employee_number(session: Session) -> str:
     """Generate the next sequential employee number.
 
@@ -31,7 +32,9 @@ def _generate_employee_number(session: Session) -> str:
     count = session.query(Collaborator).count()
     return f"EMP-{count + 1:03d}"
 
+
 # ── Public Interface ─────────────────────────────────────────────────────────────────
+
 
 @require_role("MANAGEMENT")
 def create_collaborator(
@@ -89,16 +92,17 @@ def create_collaborator(
 
     return collaborator
 
+
 @require_role("MANAGEMENT")
 def update_collaborator(
-        session: Session,
-        current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
-        collaborator: Collaborator,
-        first_name: str | None = None,
-        last_name: str | None = None,
-        email: str | None = None,
-        phone: str | None = None,
-        role_id: int | None = None,
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+    collaborator: Collaborator,
+    first_name: str | None = None,
+    last_name: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    role_id: int | None = None,
 ) -> Collaborator:
     """
     Update an existing collaborator account/details.
@@ -123,6 +127,9 @@ def update_collaborator(
     if first_name is not None:
         collaborator.first_name = first_name
 
+    if last_name is not None:
+        collaborator.last_name = last_name
+
     if email is not None:
         existing = session.query(Collaborator).filter_by(email=email).first()
         if existing and existing.id != collaborator.id:
@@ -130,6 +137,12 @@ def update_collaborator(
                 f"A collaborator with email '{email}' already exists."
             )
         collaborator.email = email
+
+    if phone is not None:
+        collaborator.phone = phone
+
+    if role_id is not None:
+        collaborator.role_id = role_id
 
     session.commit()
     return collaborator
