@@ -11,12 +11,14 @@ Tests are organised by function:
 from unittest.mock import MagicMock
 
 import pytest
+from unittest.mock import patch
 
-from exceptions import DuplicateEmailError, PermissionDeniedError
+from exceptions import DuplicateEmailError, PermissionDeniedError, ReassignmentRequiredError
 from services.collaborator_service import (
     create_collaborator,
     update_collaborator,
-    get_active_dossiers
+    get_active_dossiers,
+    deactivate_collaborator,
 )
 from models.contract import ContractStatus
 
@@ -348,3 +350,39 @@ class TestGetActiveDossiers:
         result = get_active_dossiers(session=session, collaborator=collaborator)
 
         assert active_event in result["events"]
+
+class TestDeactivateCollaborator:
+    """Tests for the deactivate_collaborator service function."""
+
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
+    def test_deactivates_collaborator_when_no_dossiers(
+            self,
+            management_user,
+            make_collaborator,
+    ):
+        """Collaborator is deactivated when no active dossiers exist."""
+
+        collaborator = make_collaborator(id=42, is_active=True)
+
+        session = MagicMock()
+
+        with patch(
+                "services.collaborator_service.get_active_dossiers",
+                return_value={"clients": [], "contracts": [], "events": []},
+        ):
+            deactivate_collaborator(
+                session=session,
+                current_user=management_user,
+                collaborator=collaborator,
+            )
+
+        assert collaborator.is_active is False
+        session.commit.assert_called_once()
+
+    # ---------------------------
+    # Sad path
+    # ---------------------------
+
