@@ -1,7 +1,7 @@
 """Entry point for the Epic Events CRM CLI application."""
 
 from cli.app import app
-from config import settings, init_sentry
+from config import init_sentry, settings
 
 settings.validate()
 init_sentry()
