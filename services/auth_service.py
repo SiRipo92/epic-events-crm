@@ -202,7 +202,7 @@ def change_password(
     Change a collaborator's password.
 
     Verifies the current password, ensures the new one differs, hashes
-    and saves the new password, and clears must_change_password.
+    and saves the new password.
 
     Args:
         session: SQLAlchemy database session.
@@ -221,5 +221,17 @@ def change_password(
         raise ValidationError("New password must differ from your current password.")
 
     collaborator.set_password(new_password)
+    session.commit()
+
+def complete_first_login(session: Session, collaborator: Collaborator) -> None:
+    """Clear the must_change_password flag after a successful first-login change.
+
+    Called by the view layer after change_password() succeeds on first login.
+    Marks the collaborator's account as fully activated.
+
+    Args:
+        session: SQLAlchemy database session.
+        collaborator: The Collaborator completing their first login.
+    """
     collaborator.must_change_password = False
     session.commit()

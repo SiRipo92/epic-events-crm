@@ -110,15 +110,6 @@ class TestChangePassword:
 
         assert c.verify_password("newpassword123") is True
 
-    def test_must_change_password_cleared(self, make_collaborator, management_role):
-        """Successful change sets must_change_password to False."""
-        c = make_collaborator(role=management_role, must_change_password=True)
-        c.set_password("oldpassword")
-        session = MagicMock()
-
-        change_password(session, c, "oldpassword", "newpassword123")
-
-        assert c.must_change_password is False
 
     # ---------------------------
     # Sad path
