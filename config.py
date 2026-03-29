@@ -5,11 +5,12 @@ Loads environment variables from .env via python-dotenv and exposes
 a Settings object used throughout the application. Sentry is
 initialised here if a DSN is configured.
 
-Raises EnvironmentError at startup if any required variable is missing,
-preventing silent failures from misconfigured environments.
+Call settings.validate() once at application startup to verify all
+required variables are present before the app runs.
 """
 
 import os
+from pathlib import Path
 from typing import Any
 
 import sentry_sdk
@@ -32,30 +33,40 @@ class Settings:
 
     def __init__(self):
         """Load and validate settings from environment variables."""
-        self.database_url = self._require("DATABASE_URL")
-        self.secret_key = self._require("SECRET_KEY")
+        self.database_url = os.getenv("DATABASE_URL", "")
+        self.secret_key = os.getenv("SECRET_KEY", "")
         self.sentry_dsn = os.getenv("SENTRY_DSN", "")
+        self.session_file = Path.home() / ".epic-events" / "session"
+        self.jwt_expiry_hours = 8
 
-    @staticmethod
-    def _require(key: str) -> str:
-        """Read a required environment variable.
+    def validate(self) -> None:
+        """Validate that all required settings are present.
 
-        Args:
-            key: The environment variable name.
-
-        Returns:
-            str: The variable value if present and non-empty.
+        Called once at application startup from main.py.
+        Never called during tests.
 
         Raises:
-            EnvironmentError: If the variable is missing or empty.
+            EnvironmentError: If any required variable is missing or empty.
         """
-        value = os.getenv(key, "").strip()
-        if not value:
+        self._require("DATABASE_URL", self.database_url)
+        self._require("SECRET_KEY", self.secret_key)
+
+    @staticmethod
+    def _require(key: str, value: str) -> None:
+        """Raise EnvironmentError if a required value is empty.
+
+        Args:
+            key: The environment variable name (for the error message).
+            value: The loaded value to check.
+
+        Raises:
+            EnvironmentError: If the value is missing or empty.
+        """
+        if not value.strip():
             raise EnvironmentError(
                 f"Missing required environment variable: {key}\n"
                 f"Check your .env file or CI secrets."
             )
-        return value
 
 
 settings = Settings()

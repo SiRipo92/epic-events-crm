@@ -444,3 +444,37 @@ def first_login_user(make_collaborator, commercial_role):
         is_active=True,
         must_change_password=True,
     )
+
+
+# ── Session file setup ──────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def session_file(tmp_path, monkeypatch):
+    """Provide an isolated session file path for auth tests."""
+    session_file = tmp_path / "session"
+
+    monkeypatch.setattr("services.auth_service.settings.session_file", session_file)
+
+    return session_file
+
+
+@pytest.fixture
+def mock_no_token(monkeypatch):
+    """Mock absence of session token."""
+    monkeypatch.setattr("services.auth_service._read_session_file", lambda: None)
+
+
+@pytest.fixture
+def mock_authenticated_session(monkeypatch):
+    """Mock a valid session token and decoded payload for get_session_user tests."""
+    monkeypatch.setattr(
+        "services.auth_service._read_session_file",
+        lambda: "valid.token.value",
+    )
+    payload = {"user_id": 1}
+    monkeypatch.setattr(
+        "services.auth_service._decode_token",
+        lambda token: payload,
+    )
+    return payload
