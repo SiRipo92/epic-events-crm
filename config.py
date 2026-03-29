@@ -14,6 +14,7 @@ from typing import Any
 
 import sentry_sdk
 from dotenv import load_dotenv
+from pathlib import Path
 from sentry_sdk.types import Event as SentryEvent
 
 load_dotenv()
@@ -35,6 +36,8 @@ class Settings:
         self.database_url = self._require("DATABASE_URL")
         self.secret_key = self._require("SECRET_KEY")
         self.sentry_dsn = os.getenv("SENTRY_DSN", "")
+        self.session_file = Path.home() / ".epic-events" / "session"
+        self.jwt_expiry_hours = 8
 
     @staticmethod
     def _require(key: str) -> str:
