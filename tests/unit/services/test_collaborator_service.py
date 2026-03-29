@@ -23,6 +23,7 @@ from services.collaborator_service import (
     deactivate_collaborator,
     get_active_dossiers,
     update_collaborator,
+    get_collaborators,
 )
 
 
@@ -440,3 +441,28 @@ class TestDeactivateCollaborator:
 
         # If no exception → test passes
         session.commit.assert_called_once()
+
+class TestGetCollaborators:
+    """Tests for the get_collaborators function."""
+
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
+    def test_no_filters_returns_all_collaborators(
+            self, management_user, make_collaborator, management_role, commercial_role
+    ):
+        """No filters returns all collaborators."""
+        collaborators = [
+            make_collaborator(id=1, role=management_role),
+            make_collaborator(id=2, role=commercial_role),
+        ]
+        session = MagicMock()
+        session.query.return_value.all.return_value = collaborators
+
+        result = get_collaborators(
+            session=session,
+            current_user=management_user,
+        )
+
+        assert result == collaborators
