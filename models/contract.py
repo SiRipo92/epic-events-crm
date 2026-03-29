@@ -122,7 +122,6 @@ class Contract(Base):
     status: Mapped[ContractStatus] = mapped_column(
         SAEnum(ContractStatus, name="contractstatus"),
         default=ContractStatus.DRAFT,
-        server_default="draft",
         nullable=False,
     )
 
