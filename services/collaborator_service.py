@@ -76,7 +76,7 @@ def create_collaborator(
     # Step 2 — generate employee number
     employee_number = _generate_employee_number(session)
 
-    # Step 3 - create the collaborator
+    # Step 3 - build the collaborator
     collaborator = Collaborator()
     collaborator.employee_number = employee_number
     collaborator.first_name = first_name

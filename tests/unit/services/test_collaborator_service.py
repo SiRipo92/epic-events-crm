@@ -44,7 +44,7 @@ class TestCreateCollaborator:
         mock_session_empty.commit.assert_called_once()
 
     def test_employee_number_is_generated(self, management_user, mock_session_empty):
-        """Employoee number is auto-generated in EMP-XXX format."""
+        """Employee number is auto-generated in EMP-XXX format."""
         result = create_collaborator(
             session=mock_session_empty,
             current_user=management_user,
@@ -103,7 +103,7 @@ class TestUpdateCollaborator:
     # ---------------------------
 
     def test_valid_update_persists_fields(
-        self, management_user, make_collaborator, management_role
+        self, management_user, make_collaborator
     ):
         """Valid update persists changed fields and commits."""
         target = make_collaborator(
@@ -111,7 +111,6 @@ class TestUpdateCollaborator:
             first_name="Bob",
             last_name="Dupont",
             email="bob.dupont@epicevents.com",
-            role=management_role,
         )
 
         session = MagicMock()
@@ -136,10 +135,10 @@ class TestUpdateCollaborator:
         ],
     )
     def test_partial_update_applies_field(
-        self, management_user, make_collaborator, management_role, field, value
+        self, management_user, make_collaborator, field, value
     ):
         """Each updatable field is applied when provided."""
-        target = make_collaborator(id=2, role=management_role)
+        target = make_collaborator(id=2)
         session = MagicMock()
         session.query.return_value.filter_by.return_value.first.return_value = None
 
@@ -182,13 +181,12 @@ class TestUpdateCollaborator:
             )
 
     def test_non_management_caller_raises(
-        self, commercial_user, make_collaborator, management_role
+        self, commercial_user, make_collaborator,
     ):
         """Non-Management caller raises PermissionDeniedError."""
         target = make_collaborator(
             id=2,
             email="bob.dupont@epicevents.com",
-            role=management_role,
         )
         session = MagicMock()
 
