@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from exceptions import (
+    CollaboratorNotFoundError,
     DuplicateEmailError,
     PermissionDeniedError,
     ReassignmentRequiredError,
@@ -22,6 +23,7 @@ from services.collaborator_service import (
     create_collaborator,
     deactivate_collaborator,
     get_active_dossiers,
+    get_collaborator_by_id,
     get_collaborators,
     update_collaborator,
 )
@@ -552,4 +554,57 @@ class TestGetCollaborators:
             get_collaborators(
                 session=session,
                 current_user=commercial_user,
+            )
+
+
+class TestGetCollaboratorById:
+    """Tests for the get_collaborator_by_id service function."""
+
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
+    def test_valid_id_returns_collaborator(
+        self, management_user, make_collaborator, management_role
+    ):
+        """Valid ID returns the correct collaborator."""
+        target = make_collaborator(id=2, role=management_role)
+
+        session = MagicMock()
+        session.get.return_value = target
+
+        result = get_collaborator_by_id(
+            session=session,
+            current_user=management_user,
+            collaborator_id=2,
+        )
+
+        assert result == target
+        assert result.id == 2
+
+    # ---------------------------
+    # Sad path
+    # ---------------------------
+
+    def test_invalid_id_raises(self, management_user):
+        """Invalid ID raises CollaboratorNotFoundError."""
+        session = MagicMock()
+        session.get.return_value = None
+
+        with pytest.raises(CollaboratorNotFoundError):
+            get_collaborator_by_id(
+                session=session,
+                current_user=management_user,
+                collaborator_id=999,
+            )
+
+    def test_non_management_caller_raises(self, commercial_user):
+        """Non-Management caller raises PermissionDeniedError."""
+        session = MagicMock()
+
+        with pytest.raises(PermissionDeniedError):
+            get_collaborator_by_id(
+                session=session,
+                current_user=commercial_user,
+                collaborator_id=1,
             )
