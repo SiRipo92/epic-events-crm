@@ -364,7 +364,6 @@ class TestDeactivateCollaborator:
     ):
         """Collaborator is deactivated when no active dossiers exist."""
         collaborator = make_collaborator(id=42, is_active=True)
-
         session = MagicMock()
 
         with patch(
@@ -388,10 +387,7 @@ class TestDeactivateCollaborator:
     ):
         """Session file is deleted if it exists."""
         collaborator = make_collaborator(id=42)
-
-        # Create the file
         session_file.write_text("token")
-
         session = MagicMock()
 
         with patch(
@@ -424,7 +420,7 @@ class TestDeactivateCollaborator:
         make_collaborator,
         dossiers,
     ):
-        """Raises ReassignmentRequiredError if any type of dossier exists."""
+        """Raises ReassignmentRequiredError with dossiers details if any exist."""
         collaborator = make_collaborator(id=42)
         session = MagicMock()
 
@@ -432,13 +428,14 @@ class TestDeactivateCollaborator:
             "services.collaborator_service.get_active_dossiers",
             return_value=dossiers,
         ):
-            with pytest.raises(ReassignmentRequiredError):
+            with pytest.raises(ReassignmentRequiredError) as exc_info:
                 deactivate_collaborator(
                     session=session,
                     current_user=management_user,
                     collaborator=collaborator,
                 )
-
+        # The exception should carry the exact dossiers dict
+        assert exc_info.value.dossiers == dossiers
         session.commit.assert_not_called()
 
     def test_no_error_if_session_file_missing(
@@ -449,7 +446,6 @@ class TestDeactivateCollaborator:
     ):
         """No error occurs if session file does not exist."""
         collaborator = make_collaborator(id=42)
-
         session = MagicMock()
 
         # Ensure file does not exist
