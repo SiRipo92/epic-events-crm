@@ -210,5 +210,15 @@ def deactivate_collaborator(
     """
     Allows a Manager to deactivate an existing collaborator.
     """
+
+    # Step 1 — check for active dossiers
+    dossiers = get_active_dossiers(session=session, collaborator=collaborator)
+
+    if any(dossiers.values()):
+        raise ReassignmentRequiredError(
+            "Collaborator has active dossiers that must be reassigned."
+        )
+
+    # Step 2 — deactivate
     collaborator.is_active = False
     session.commit()
