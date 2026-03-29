@@ -12,25 +12,27 @@ Tests are organised by function:
     - get_session_user
 """
 
+import datetime as dt
+from datetime import timedelta, timezone
+from unittest.mock import MagicMock, patch
+
 import jwt
 import pytest
-from datetime import timedelta, timezone
-import datetime as dt
-from unittest.mock import MagicMock, patch
 
 from config import settings
 from exceptions import AuthenticationError, ValidationError
 from services.auth_service import (
-    _generate_token,
     _decode_token,
-    change_password,
+    _generate_token,
     _get_session_path,
+    _read_session_file,
     _write_session_file,
+    change_password,
+    get_session_user,
     login,
     logout,
-    _read_session_file,
-    get_session_user
 )
+
 
 class TestGenerateToken:
     """Tests for JWT token generation."""
@@ -108,9 +110,7 @@ class TestChangePassword:
 
         assert c.verify_password("newpassword123") is True
 
-    def test_must_change_password_cleared(
-            self, make_collaborator, management_role
-    ):
+    def test_must_change_password_cleared(self, make_collaborator, management_role):
         """Successful change sets must_change_password to False."""
         c = make_collaborator(role=management_role, must_change_password=True)
         c.set_password("oldpassword")
@@ -124,9 +124,7 @@ class TestChangePassword:
     # Sad path
     # ---------------------------
 
-    def test_wrong_current_password_raises(
-            self, make_collaborator, management_role
-    ):
+    def test_wrong_current_password_raises(self, make_collaborator, management_role):
         """Wrong current password raises AuthenticationError."""
         c = make_collaborator(role=management_role)
         c.set_password("oldpassword")
@@ -135,9 +133,7 @@ class TestChangePassword:
         with pytest.raises(AuthenticationError):
             change_password(session, c, "wrongpassword", "newpassword123")
 
-    def test_same_password_raises(
-            self, make_collaborator, management_role
-    ):
+    def test_same_password_raises(self, make_collaborator, management_role):
         """New password identical to current raises ValidationError."""
         c = make_collaborator(role=management_role)
         c.set_password("samepassword")
@@ -178,6 +174,7 @@ class TestWriteSessionFile:
         file_mode = session_file.stat().st_mode & 0o777
         assert file_mode == 0o600
 
+
 class TestLogin:
     """Tests for the login service function."""
 
@@ -208,13 +205,16 @@ class TestLogin:
     # Sad path
     # ---------------------------
 
-    @pytest.mark.parametrize("setup,expected_match", [
-        ("wrong_password", None),
-        ("unknown_email", None),
-        ("inactive_account", "deactivated"),
-    ])
+    @pytest.mark.parametrize(
+        "setup,expected_match",
+        [
+            ("wrong_password", None),
+            ("unknown_email", None),
+            ("inactive_account", "deactivated"),
+        ],
+    )
     def test_invalid_login_raises(
-            self, setup, expected_match, make_collaborator, management_role
+        self, setup, expected_match, make_collaborator, management_role
     ):
         """Invalid credentials or inactive account raises AuthenticationError."""
         session = MagicMock()
@@ -245,7 +245,7 @@ class TestLogin:
                     login(session, email, password)
 
 
-class TestLogout():
+class TestLogout:
     """Tests for the logout service function."""
 
     # ---------------------------
@@ -322,9 +322,7 @@ class TestGetSessionUser:
     # Happy path
     # ---------------------------
 
-    def test_returns_collaborator_if_token_valid(
-        self, mock_authenticated_session
-    ):
+    def test_returns_collaborator_if_token_valid(self, mock_authenticated_session):
         """Return collaborator when token and user are valid."""
         result = get_session_user(
             session=self._SessionReturning(self._ActiveCollaborator())
@@ -340,9 +338,7 @@ class TestGetSessionUser:
         result = get_session_user(session=None)
         assert result is None
 
-    def test_raises_if_user_not_found(
-        self, mock_authenticated_session, mocker
-    ):
+    def test_raises_if_user_not_found(self, mock_authenticated_session, mocker):
         """Delete session and raise if user does not exist in DB."""
         mock_delete = mocker.patch("services.auth_service._delete_session_file")
 
@@ -351,9 +347,7 @@ class TestGetSessionUser:
 
         mock_delete.assert_called_once()
 
-    def test_raises_if_user_inactive(
-        self, mock_authenticated_session, mocker
-    ):
+    def test_raises_if_user_inactive(self, mock_authenticated_session, mocker):
         """Delete session and raise if user is deactivated."""
         mock_delete = mocker.patch("services.auth_service._delete_session_file")
 

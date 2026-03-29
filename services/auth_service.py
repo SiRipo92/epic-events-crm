@@ -22,12 +22,13 @@ from config import settings
 from exceptions import AuthenticationError, ValidationError
 from models.collaborator import Collaborator
 
-
 # ── Session file helpers ───────────────────────────────────────────────────────
+
 
 def _get_session_path() -> Path:
     """Return the path to the session token file."""
     return settings.session_file
+
 
 def _write_session_file(token: str) -> None:
     """
@@ -41,6 +42,7 @@ def _write_session_file(token: str) -> None:
     session_path.write_text(token)
     os.chmod(session_path, 0o600)
 
+
 def _read_session_file() -> str | None:
     """
     Read the JWT token from session file.
@@ -52,13 +54,16 @@ def _read_session_file() -> str | None:
         return None
     return session_path.read_text().strip()
 
+
 def _delete_session_file() -> None:
     """Delete the session file if it exists."""
     session_path = _get_session_path()
     if session_path.exists():
         session_path.unlink()
 
+
 # ── Token helpers ─────────────────────────────────────────────────────────────
+
 
 def _generate_token(collaborator) -> str:
     """
@@ -76,6 +81,7 @@ def _generate_token(collaborator) -> str:
         "exp": datetime.now(timezone.utc) + timedelta(hours=settings.jwt_expiry_hours),
     }
     return jwt.encode(payload, settings.secret_key, algorithm="HS256")
+
 
 def _decode_token(token: str) -> dict:
     """
@@ -97,7 +103,9 @@ def _decode_token(token: str) -> dict:
     except jwt.InvalidTokenError:
         raise AuthenticationError("Invalid session. Please log in again.")
 
+
 # ── Public interface ──────────────────────────────────────────────────────────
+
 
 def login(session: Session, email: str, password: str) -> Collaborator:
     """Authenticate a collaborator and create a session token.
@@ -138,6 +146,7 @@ def login(session: Session, email: str, password: str) -> Collaborator:
     # Step 5 — return collaborator regardless of must_change_password
     return collaborator
 
+
 def logout() -> None:
     """
     End the current session by deleting the session file.
@@ -145,6 +154,7 @@ def logout() -> None:
     Safe to call even if no session exists.
     """
     _delete_session_file()
+
 
 def get_session_user(session: Session) -> Collaborator | None:
     """
@@ -177,17 +187,16 @@ def get_session_user(session: Session) -> Collaborator | None:
 
     if not collaborator.is_active:
         _delete_session_file()
-        raise AuthenticationError(
-            "Account deactivated. Contact management."
-        )
+        raise AuthenticationError("Account deactivated. Contact management.")
 
     return collaborator
 
+
 def change_password(
-        session: Session,
-        collaborator: Collaborator,
-        current_password: str,
-        new_password: str
+    session: Session,
+    collaborator: Collaborator,
+    current_password: str,
+    new_password: str,
 ) -> None:
     """
     Change a collaborator's password.
@@ -209,9 +218,7 @@ def change_password(
         raise AuthenticationError("Current password is incorrect.")
 
     if collaborator.verify_password(new_password):
-        raise ValidationError(
-            "New password must differ from your current password."
-        )
+        raise ValidationError("New password must differ from your current password.")
 
     collaborator.set_password(new_password)
     collaborator.must_change_password = False

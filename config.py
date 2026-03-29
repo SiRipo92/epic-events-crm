@@ -10,11 +10,11 @@ preventing silent failures from misconfigured environments.
 """
 
 import os
+from pathlib import Path
 from typing import Any
 
 import sentry_sdk
 from dotenv import load_dotenv
-from pathlib import Path
 from sentry_sdk.types import Event as SentryEvent
 
 load_dotenv()
