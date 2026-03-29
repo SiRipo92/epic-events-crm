@@ -466,3 +466,23 @@ class TestGetCollaborators:
         )
 
         assert result == collaborators
+
+    def test_filter_by_role_returns_matching_collaborators(
+            self, management_user, make_collaborator, management_role, commercial_role
+    ):
+        """Filter by role returns only collaborators with that role."""
+        management_collaborator = make_collaborator(id=1, role=management_role)
+
+        session = MagicMock()
+        session.query.return_value.join.return_value.filter.return_value.all.return_value = [
+            management_collaborator
+        ]
+
+        result = get_collaborators(
+            session=session,
+            current_user=management_user,
+            role="MANAGEMENT",
+        )
+
+        assert len(result) == 1
+        assert result[0].role.name == "MANAGEMENT"
