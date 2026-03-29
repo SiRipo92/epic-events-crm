@@ -18,7 +18,7 @@ from services.collaborator_service import (
     update_collaborator,
     get_active_dossiers
 )
-
+from models.contract import ContractStatus
 
 class TestCreateCollaborator:
     """Tests for the create_collaborator service function."""
@@ -206,6 +206,10 @@ class TestUpdateCollaborator:
 class TestGetActiveDossiers:
     """Tests for helper that retrieves active dossiers for a collaborator."""
 
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
     def test_returns_all_active_dossiers(
         self,
         make_collaborator,
@@ -242,3 +246,105 @@ class TestGetActiveDossiers:
         assert result["clients"] == clients
         assert result["contracts"] == contracts
         assert result["events"] == events
+
+    def test_all_clients_are_returned(
+            self,
+            make_collaborator,
+            make_client,
+    ):
+        """All clients linked to collaborator are returned."""
+
+        collaborator = make_collaborator(id=42)
+
+        clients = [
+            make_client(id=1, commercial_id=42),
+            make_client(id=2, commercial_id=42),
+        ]
+
+        session = MagicMock()
+        session.query.return_value.filter.return_value.all.side_effect = [
+            clients,
+            [],
+            [],
+        ]
+
+        result = get_active_dossiers(session=session, collaborator=collaborator)
+
+        assert result["clients"] == clients
+
+    # ---------------------------
+    # Sad path
+    # ---------------------------
+
+    def test_returns_empty_lists_when_no_dossiers(
+            self,
+            make_collaborator,
+    ):
+        """Returns empty lists when collaborator has no linked dossiers."""
+
+        collaborator = make_collaborator(id=42)
+
+        session = MagicMock()
+        session.query.return_value.filter.return_value.all.side_effect = [
+            [],  # clients
+            [],  # contracts
+            [],  # events
+        ]
+
+        result = get_active_dossiers(session=session, collaborator=collaborator)
+
+        assert result == {
+            "clients": [],
+            "contracts": [],
+            "events": [],
+        }
+
+    def test_excludes_cancelled_and_paid_contracts(
+            self,
+            make_collaborator,
+            make_contract,
+    ):
+        """Contracts with CANCELLED or PAID_IN_FULL status are excluded."""
+
+        collaborator = make_collaborator(id=42)
+
+        active_contract = make_contract(id=1, commercial_id=42)
+        cancelled_contract = make_contract(id=2, commercial_id=42)
+        cancelled_contract.status = ContractStatus.CANCELLED
+
+        paid_contract = make_contract(id=3, commercial_id=42)
+        paid_contract.status = ContractStatus.PAID_IN_FULL
+
+        session = MagicMock()
+        session.query.return_value.filter.return_value.all.side_effect = [
+            [],  # clients
+            [active_contract],  # contracts → DB already filtered
+            [],  # events
+        ]
+
+        result = get_active_dossiers(session=session, collaborator=collaborator)
+
+        assert active_contract in result["contracts"]
+
+    def test_excludes_cancelled_events(
+            self,
+            make_collaborator,
+            make_event,
+    ):
+        """Cancelled events are excluded from active dossiers."""
+
+        collaborator = make_collaborator(id=42)
+
+        active_event = make_event(id=1, support_id=42, is_cancelled=False)
+        cancelled_event = make_event(id=2, support_id=42, is_cancelled=True)
+
+        session = MagicMock()
+        session.query.return_value.filter.return_value.all.side_effect = [
+            [],  # clients
+            [],  # contracts
+            [active_event],  # events → DB already filtered
+        ]
+
+        result = get_active_dossiers(session=session, collaborator=collaborator)
+
+        assert active_event in result["events"]
