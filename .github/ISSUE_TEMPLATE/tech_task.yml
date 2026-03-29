@@ -1,0 +1,63 @@
+name: Technical Task
+description: Infrastructure, testing, or technical debt — not a user-facing feature
+labels: ["tech-task"]
+title: "[TECH] "
+body:
+  - type: input
+    id: task_id
+    attributes:
+      label: Task ID
+      placeholder: "e.g. TECH-01"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Integration tests
+        - Sentry logging
+        - Performance
+        - Refactoring
+        - Security
+        - Documentation
+        - CI/CD
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      placeholder: "What needs to be done and why?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Tasks
+      placeholder: |
+        - [ ] Task 1
+        - [ ] Task 2
+    validations:
+      required: true
+
+  - type: input
+    id: related_stories
+    attributes:
+      label: Related User Stories
+      placeholder: "e.g. US-12, US-21"
+
+  - type: dropdown
+    id: sprint
+    attributes:
+      label: Sprint
+      options:
+        - "Sprint 1 — Project Foundation"
+        - "Sprint 2 — Collaborator Identity, Auth & Authorisation"
+        - "Sprint 3 — Data Read & Write Operations"
+        - "Sprint 4 — CLI Interface, Sentry & Delivery"
+    validations:
+      required: true
