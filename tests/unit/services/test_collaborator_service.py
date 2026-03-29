@@ -597,3 +597,14 @@ class TestGetCollaboratorById:
                 current_user=management_user,
                 collaborator_id=999,
             )
+
+    def test_non_management_caller_raises(self, commercial_user):
+        """Non-Management caller raises PermissionDeniedError."""
+        session = MagicMock()
+
+        with pytest.raises(PermissionDeniedError):
+            get_collaborator_by_id(
+                session=session,
+                current_user=commercial_user,
+                collaborator_id=1,
+            )
