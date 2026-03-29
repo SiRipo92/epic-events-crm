@@ -210,15 +210,23 @@ class PaymentExceedsBalanceError(PaymentError):
 # ── Collaborator deactivation ──────────────────────────────────────────────────
 
 
-class ReassignmentRequiredError(EpicEventsError):
-    """Raised when deactivation is attempted with active dossiers still assigned.
-
-    Deactivation is blocked until all clients, open contracts, and
-    non-cancelled events belonging to the collaborator are reassigned
-    to another collaborator.
+class ReassignmentRequiredError(Exception):
+    """
+    Raised when a collaborator has active dossiers that must be reassigned
+    before deactivation.
     """
 
-    pass
+    def __init__(self, message: str = None, dossiers: dict | None = None):
+        """
+        Args:
+            message: Optional human-readable message
+            dossiers: Optional dict of active dossiers, e.g.:
+                      {"clients": [...], "contracts": [...], "events": [...]}
+        """
+        if message is None:
+            message = "Collaborator has active dossiers that must be reassigned."
+        super().__init__(message)
+        self.dossiers = dossiers or {}
 
 
 # ── Event assignment ───────────────────────────────────────────────────────────
