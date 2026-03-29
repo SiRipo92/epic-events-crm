@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from exceptions import DuplicateEmailError, ReassignmentRequiredError
 from models.client import Client
 from models.collaborator import Collaborator
+from models.role import Role
 from models.contract import Contract, ContractStatus
 from models.event import Event
 from permissions.decorators import require_role
@@ -269,5 +270,10 @@ def get_collaborators(
     Raises:
         PermissionDeniedError: If current_user is not Management.
     """
-    results: list[Collaborator] = session.query(Collaborator).all()  # type: ignore[assignment]
+    query = session.query(Collaborator)
+
+    if role is not None:
+        query = query.join(Role).filter(Role.name == role)
+
+    results: list[Collaborator] = query.all()  # type: ignore[assignment]
     return results
