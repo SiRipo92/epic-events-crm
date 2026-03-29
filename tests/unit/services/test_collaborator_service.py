@@ -581,3 +581,19 @@ class TestGetCollaboratorById:
 
         assert result == target
         assert result.id == 2
+
+    # ---------------------------
+    # Sad path
+    # ---------------------------
+
+    def test_invalid_id_raises(self, management_user):
+        """Invalid ID raises CollaboratorNotFoundError."""
+        session = MagicMock()
+        session.get.return_value = None
+
+        with pytest.raises(CollaboratorNotFoundError):
+            get_collaborator_by_id(
+                session=session,
+                current_user=management_user,
+                collaborator_id=999,
+            )
