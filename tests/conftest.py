@@ -11,6 +11,7 @@ Fixtures are organised as:
 
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -478,3 +479,15 @@ def mock_authenticated_session(monkeypatch):
         lambda token: payload,
     )
     return payload
+
+
+# ── Collaborator service setup ──────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def mock_session_empty():
+    """Return a MagicMock session with no existing collaborators."""
+    session = MagicMock()
+    session.query.return_value.filter_by.return_value.first.return_value = None
+    session.query.return_value.count.return_value = 0
+    return session
