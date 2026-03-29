@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from exceptions import (
+    CollaboratorNotFoundError,
     DuplicateEmailError,
     PermissionDeniedError,
     ReassignmentRequiredError,
@@ -23,6 +24,7 @@ from services.collaborator_service import (
     deactivate_collaborator,
     get_active_dossiers,
     get_collaborators,
+    get_collaborator_by_id,
     update_collaborator,
 )
 
@@ -553,3 +555,29 @@ class TestGetCollaborators:
                 session=session,
                 current_user=commercial_user,
             )
+
+
+class TestGetCollaboratorById:
+    """Tests for the get_collaborator_by_id service function."""
+
+    # ---------------------------
+    # Happy path
+    # ---------------------------
+
+    def test_valid_id_returns_collaborator(
+        self, management_user, make_collaborator, management_role
+    ):
+        """Valid ID returns the correct collaborator."""
+        target = make_collaborator(id=2, role=management_role)
+
+        session = MagicMock()
+        session.get.return_value = target
+
+        result = get_collaborator_by_id(
+            session=session,
+            current_user=management_user,
+            collaborator_id=2,
+        )
+
+        assert result == target
+        assert result.id == 2

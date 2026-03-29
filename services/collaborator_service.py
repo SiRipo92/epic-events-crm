@@ -10,7 +10,11 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from exceptions import DuplicateEmailError, ReassignmentRequiredError
+from exceptions import (
+    CollaboratorNotFoundError,
+    DuplicateEmailError,
+    ReassignmentRequiredError
+)
 from models.client import Client
 from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
@@ -281,3 +285,35 @@ def get_collaborators(
 
     results: list[Collaborator] = query.all()  # type: ignore[assignment]
     return results
+
+
+@require_role("MANAGEMENT")
+def get_collaborator_by_id(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+    collaborator_id: int,
+) -> Collaborator:
+    """Return a single collaborator by ID.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated Management collaborator.
+        collaborator_id: The primary key of the collaborator to retrieve.
+
+    Returns:
+        Collaborator: The matching collaborator instance.
+
+    Raises:
+        PermissionDeniedError: If current_user is not Management.
+        CollaboratorNotFoundError: If no collaborator exists with that ID.
+    """
+    from exceptions import CollaboratorNotFoundError
+
+    collaborator: Collaborator | None = session.get(Collaborator, collaborator_id)
+
+    if not collaborator:
+        raise CollaboratorNotFoundError(
+            f"No collaborator found with ID {collaborator_id}."
+        )
+
+    return collaborator
