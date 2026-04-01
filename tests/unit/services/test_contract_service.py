@@ -22,6 +22,7 @@ from services.contract_service import (
     edit_contract,
     submit_for_signature,
     record_client_signature,
+    record_deposit_received,
 )
 
 
@@ -269,6 +270,59 @@ class TestContractStatusTransitions:
 
         with pytest.raises(PermissionDeniedError):
             record_client_signature(
+                session=session,
+                current_user=commercial_user,
+                contract=contract,
+            )
+
+    # ---------------------------
+    # record_deposit_received — happy path
+    # ---------------------------
+
+    def test_signed_contract_transitions_to_deposit_received(
+            self, management_user, make_contract
+    ):
+        """SIGNED contract transitions to DEPOSIT_RECEIVED on submit."""
+        contract = make_contract(id=1, status=ContractStatus.SIGNED)
+        session = MagicMock()
+
+        result = record_deposit_received(
+            session=session,
+            current_user=management_user,
+            contract=contract,
+        )
+
+        assert result.status == ContractStatus.DEPOSIT_RECEIVED
+        assert result.deposit_received is True
+        session.commit.assert_called_once()
+
+    # ---------------------------
+    # record_deposit_received — sad path
+    # ---------------------------
+
+    def test_deposit_on_non_signed_contract_raises(
+            self, management_user, make_contract
+    ):
+        """Test a non-signed contract does not accept deposit."""
+        contract = make_contract(status=ContractStatus.PENDING)
+        session = MagicMock()
+
+        with pytest.raises(InvalidStatusTransitionError):
+            record_deposit_received(
+                session=session,
+                current_user=management_user,
+                contract=contract,
+            )
+
+    def test_deposit_non_management_user_raises(
+            self, commercial_user, make_contract
+    ):
+        """Test permissions on recording a deposit received"""
+        contract = make_contract(status=ContractStatus.SIGNED)
+        session = MagicMock()
+
+        with pytest.raises(PermissionDeniedError):
+            record_deposit_received(
                 session=session,
                 current_user=commercial_user,
                 contract=contract,

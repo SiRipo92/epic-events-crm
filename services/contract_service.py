@@ -22,6 +22,9 @@ from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
 from permissions.decorators import require_role
 
+# ── Contract helpers ─────────────────────────────────────────────────────────────────
+
+
 # ── Public Interface ─────────────────────────────────────────────────────────────────
 
 
@@ -169,5 +172,29 @@ def record_client_signature(
         )
 
     contract.status = ContractStatus.SIGNED
+    session.commit()
+    return contract
+
+
+@require_role("MANAGEMENT")
+def record_deposit_received(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001
+    contract: Contract,
+) -> Contract:
+    """SIGNED contract transitions to DEPOSIT_RECEIVED and sets deposit flag."""
+
+    # Step 1 — Validate state
+    if contract.status != ContractStatus.SIGNED:
+        raise InvalidStatusTransitionError(
+            f"Cannot record deposit: contract status is "
+            f"{contract.status.value}, expected SIGNED."
+        )
+
+    # Step 2 — Apply state change
+    contract.deposit_received = True
+    contract.status = ContractStatus.DEPOSIT_RECEIVED
+
+    # Step 3 — Persist
     session.commit()
     return contract
