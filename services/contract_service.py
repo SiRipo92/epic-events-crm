@@ -335,3 +335,38 @@ def get_contracts_for_user(
             .where(Event.support_id == current_user.id)
         ).all()
     )
+
+
+def filter_contracts(
+    contracts: list[Contract],
+    status: ContractStatus | None = None,
+    client_name: str | None = None,
+) -> list[Contract]:
+    """Filter a scoped list of contracts by optional criteria.
+
+    Filters are applied on top of an already-scoped list from
+    get_contracts_for_user() — never bypasses role scoping.
+
+    Args:
+        contracts: Pre-scoped list of contracts to filter.
+        status: Optional status to filter by.
+        client_name: Optional client name substring to filter by.
+
+    Returns:
+        list[Contract]: Filtered contracts matching all provided criteria.
+    """
+    results = contracts
+
+    if status is not None:
+        results = [c for c in results if c.status == status]
+
+    if client_name is not None:
+        results = [
+            c for c in results
+            if c.client is not None
+            and client_name.lower() in (
+                c.client.first_name + " " + c.client.last_name
+            ).lower()
+        ]
+
+    return results

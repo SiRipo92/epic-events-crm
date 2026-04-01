@@ -26,7 +26,8 @@ from services.contract_service import (
     record_deposit_received,
     record_payment,
     submit_for_signature,
-    get_contracts_for_user
+    get_contracts_for_user,
+    filter_contracts,
 )
 
 
@@ -553,3 +554,42 @@ class TestReadContractService:
         )
 
         assert len(result) == expected_count
+
+
+class TestFilterContracts:
+    """Tests for filter_contracts() — applied on top of scoped list."""
+
+    # ---------------------------
+    # filter_contracts — happy path
+    # ---------------------------
+
+    def test_filter_by_status(self, make_contract):
+        """Filter by status returns only matching contracts."""
+        signed = make_contract(id=1, status=ContractStatus.SIGNED)
+        draft = make_contract(id=2, status=ContractStatus.DRAFT)
+
+        result = filter_contracts(
+            contracts=[signed, draft],
+            status=ContractStatus.SIGNED,
+        )
+
+        assert len(result) == 1
+        assert result[0].status == ContractStatus.SIGNED
+
+    def test_filter_by_client_name(self, make_contract, make_client):
+        """Filter by client name returns only matching contracts."""
+        client_a = make_client(id=1, first_name="Marie", last_name="Curie")
+        client_b = make_client(id=2, first_name="Jean", last_name="Dupont")
+
+        contract_a = make_contract(id=1)
+        contract_b = make_contract(id=2)
+        contract_a.client = client_a
+        contract_b.client = client_b
+
+        result = filter_contracts(
+            contracts=[contract_a, contract_b],
+            client_name="Curie",
+        )
+
+        assert len(result) == 1
+        assert result[0].client.last_name == "Curie"
