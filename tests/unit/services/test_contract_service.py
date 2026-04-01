@@ -13,10 +13,15 @@ import pytest
 from exceptions import (
     ClientNotFoundError,
     ContractNotEditableError,
+    InvalidStatusTransitionError,
     PermissionDeniedError,
 )
 from models.contract import ContractStatus
-from services.contract_service import create_contract, edit_contract
+from services.contract_service import (
+    create_contract,
+    edit_contract,
+    submit_for_signature,
+)
 
 
 class TestWriteContractService:
@@ -161,3 +166,57 @@ class TestWriteContractService:
         )
 
         assert getattr(contract, field) == value
+
+
+class TestContractStatusTransitions:
+    """Tests for contract status transition functions."""
+
+    # ---------------------------
+    # submit_for_signature — happy path
+    # ---------------------------
+
+    def test_draft_contract_transitions_to_pending(
+        self, management_user, make_contract
+    ):
+        """DRAFT contract transitions to PENDING on submit."""
+        contract = make_contract(id=1, status=ContractStatus.DRAFT)
+        session = MagicMock()
+
+        result = submit_for_signature(
+            session=session,
+            current_user=management_user,
+            contract=contract,
+        )
+
+        assert result.status == ContractStatus.PENDING
+        session.commit.assert_called_once()
+
+    # ---------------------------
+    # submit_for_signature — sad path
+    # ---------------------------
+
+    def test_non_draft_contract_raises_on_submit(self, management_user, make_contract):
+        """Non-DRAFT contract raises InvalidStatusTransitionError."""
+        contract = make_contract(id=1, status=ContractStatus.PENDING)
+        session = MagicMock()
+
+        with pytest.raises(InvalidStatusTransitionError):
+            submit_for_signature(
+                session=session,
+                current_user=management_user,
+                contract=contract,
+            )
+
+    def test_submit_for_signature_non_management_raises(
+        self, commercial_user, make_contract
+    ):
+        """Non-Management caller raises PermissionDeniedError."""
+        contract = make_contract(id=1, status=ContractStatus.DRAFT)
+        session = MagicMock()
+
+        with pytest.raises(PermissionDeniedError):
+            submit_for_signature(
+                session=session,
+                current_user=commercial_user,
+                contract=contract,
+            )

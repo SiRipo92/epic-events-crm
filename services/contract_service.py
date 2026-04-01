@@ -12,7 +12,11 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from exceptions import ClientNotFoundError, ContractNotEditableError
+from exceptions import (
+    ClientNotFoundError,
+    ContractNotEditableError,
+    InvalidStatusTransitionError,
+)
 from models.client import Client
 from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
@@ -104,5 +108,36 @@ def edit_contract(
     if commercial_id is not None:
         contract.commercial_id = commercial_id
 
+    session.commit()
+    return contract
+
+
+@require_role("MANAGEMENT")
+def submit_for_signature(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+    contract: Contract,
+) -> Contract:
+    """Transition contract from DRAFT to PENDING.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated Management collaborator.
+        contract: The Contract instance to transition.
+
+    Returns:
+        Contract: The updated contract instance.
+
+    Raises:
+        PermissionDeniedError: If current_user is not Management.
+        InvalidStatusTransitionError: If contract is not in DRAFT status.
+    """
+    if contract.status != ContractStatus.DRAFT:
+        raise InvalidStatusTransitionError(
+            f"Cannot submit for signature: contract status is "
+            f"{contract.status.value}, expected DRAFT."
+        )
+
+    contract.status = ContractStatus.PENDING
     session.commit()
     return contract
