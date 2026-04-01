@@ -10,13 +10,14 @@ from unittest.mock import MagicMock
 import pytest
 
 from exceptions import (
-    PermissionDeniedError,
     DuplicateEmailError,
+    PermissionDeniedError,
     ValidationError,
 )
 from services.client_service import (
     create_client,
 )
+
 
 class TestWriteClientService:
     """Tests for client write operations — create and update."""
@@ -26,7 +27,7 @@ class TestWriteClientService:
     # ---------------------------
 
     def test_create_client_sets_commercial_id_from_current_user(
-            self, commercial_user, mock_session_empty
+        self, commercial_user, mock_session_empty
     ):
         """Client is created with commercial_id set from current_user.id."""
         result = create_client(
@@ -43,14 +44,11 @@ class TestWriteClientService:
         mock_session_empty.add.assert_called_once()
         mock_session_empty.commit.assert_called_once()
 
-
     # ---------------------------
     # create_client — sad path
     # ---------------------------
 
-    def test_client_invalid_email_raises(
-            self, commercial_user, mock_session_empty
-    ):
+    def test_client_invalid_email_raises(self, commercial_user, mock_session_empty):
         """Invalid email format raises ValidationError."""
         with pytest.raises(ValidationError):
             create_client(
@@ -61,12 +59,12 @@ class TestWriteClientService:
                 email="notanemail",
             )
 
-    def test_create_client_duplicate_email_raises(
-            self, commercial_user
-    ):
+    def test_create_client_duplicate_email_raises(self, commercial_user):
         """Duplicate email raises DuplicateEmailError."""
         session = MagicMock()
-        session.query.return_value.filter_by.return_value.first.return_value = MagicMock()
+        session.query.return_value.filter_by.return_value.first.return_value = (
+            MagicMock()
+        )
 
         with pytest.raises(DuplicateEmailError):
             create_client(
@@ -77,9 +75,7 @@ class TestWriteClientService:
                 email="already.exists@example.com",
             )
 
-    def test_create_client_non_commercial_caller_raises(
-            self, management_user
-    ):
+    def test_create_client_non_commercial_caller_raises(self, management_user):
         """Non-Commercial caller raises PermissionDeniedError."""
         session = MagicMock()
 
@@ -93,7 +89,7 @@ class TestWriteClientService:
             )
 
     def test_create_client_commercial_id_cannot_be_overridden(
-            self, commercial_user, mock_session_empty
+        self, commercial_user, mock_session_empty
     ):
         """commercial_id is always set from current_user.id regardless of input."""
         result = create_client(

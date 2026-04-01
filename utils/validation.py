@@ -26,6 +26,4 @@ def validate_email(email: str) -> None:
     """
     pattern = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
     if not email or not re.match(pattern, email.strip()):
-        raise ValidationError(
-            f"'{email}' is not a valid email address."
-        )
+        raise ValidationError(f"'{email}' is not a valid email address.")

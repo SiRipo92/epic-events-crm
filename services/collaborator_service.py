@@ -26,6 +26,7 @@ from utils.validation import validate_email
 
 # ── Collaborator helpers ─────────────────────────────────────────────────────
 
+
 def _generate_employee_number(session: Session) -> str:
     """Generate the next sequential employee number.
 

@@ -9,26 +9,27 @@ All others have Read access and typically scoped to their role/permissions.
 Ex. Management can view all clients, but Support can only view clients assigned
 to them.
 """
+
 from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
 from exceptions import DuplicateEmailError
-from models.collaborator import Collaborator
 from models.client import Client
+from models.collaborator import Collaborator
 from permissions.decorators import require_role
 from utils.validation import validate_email
 
+
 @require_role("COMMERCIAL")
 def create_client(
-        session: Session,
-        current_user: Collaborator,
-        first_name: str,
-        last_name: str,
-        email: str,
-        phone: str | None = None,
-        company_name: str | None = None,
-
+    session: Session,
+    current_user: Collaborator,
+    first_name: str,
+    last_name: str,
+    email: str,
+    phone: str | None = None,
+    company_name: str | None = None,
 ) -> Client:
     """Create a new client profile.
 
@@ -55,9 +56,7 @@ def create_client(
     # Step 2 — check email uniqueness
     existing = session.query(Client).filter_by(email=email).first()
     if existing:
-        raise DuplicateEmailError(
-            f"A client with email '{email}' already exists."
-        )
+        raise DuplicateEmailError(f"A client with email '{email}' already exists.")
 
     # Step 3 - build client
     client = Client()
