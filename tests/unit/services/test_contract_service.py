@@ -14,15 +14,17 @@ from exceptions import (
     ClientNotFoundError,
     ContractNotEditableError,
     InvalidStatusTransitionError,
+    PaymentExceedsBalanceError,
     PermissionDeniedError,
 )
 from models.contract import ContractStatus
 from services.contract_service import (
     create_contract,
     edit_contract,
-    submit_for_signature,
     record_client_signature,
     record_deposit_received,
+    record_payment,
+    submit_for_signature,
 )
 
 
@@ -228,7 +230,7 @@ class TestContractStatusTransitions:
     # ---------------------------
 
     def test_pending_contract_transitions_to_signed(
-            self, management_user, make_contract
+        self, management_user, make_contract
     ):
         """PENDING contract transitions to SIGNED on signature."""
         contract = make_contract(id=1, status=ContractStatus.PENDING)
@@ -248,7 +250,7 @@ class TestContractStatusTransitions:
     # ---------------------------
 
     def test_non_pending_contract_raises_on_signature(
-            self, management_user, make_contract
+        self, management_user, make_contract
     ):
         """Non-PENDING contract raises InvalidStatusTransitionError."""
         contract = make_contract(id=1, status=ContractStatus.DRAFT)
@@ -262,7 +264,7 @@ class TestContractStatusTransitions:
             )
 
     def test_record_signature_non_management_raises(
-            self, commercial_user, make_contract
+        self, commercial_user, make_contract
     ):
         """Non-Management caller raises PermissionDeniedError."""
         contract = make_contract(id=1, status=ContractStatus.PENDING)
@@ -280,7 +282,7 @@ class TestContractStatusTransitions:
     # ---------------------------
 
     def test_signed_contract_transitions_to_deposit_received(
-            self, management_user, make_contract
+        self, management_user, make_contract
     ):
         """SIGNED contract transitions to DEPOSIT_RECEIVED on submit."""
         contract = make_contract(id=1, status=ContractStatus.SIGNED)
@@ -301,7 +303,7 @@ class TestContractStatusTransitions:
     # ---------------------------
 
     def test_deposit_on_non_signed_contract_raises(
-            self, management_user, make_contract
+        self, management_user, make_contract
     ):
         """Test a non-signed contract does not accept deposit."""
         contract = make_contract(status=ContractStatus.PENDING)
@@ -314,9 +316,7 @@ class TestContractStatusTransitions:
                 contract=contract,
             )
 
-    def test_deposit_non_management_user_raises(
-            self, commercial_user, make_contract
-    ):
+    def test_deposit_non_management_user_raises(self, commercial_user, make_contract):
         """Test permissions on recording a deposit received"""
         contract = make_contract(status=ContractStatus.SIGNED)
         session = MagicMock()
@@ -326,4 +326,114 @@ class TestContractStatusTransitions:
                 session=session,
                 current_user=commercial_user,
                 contract=contract,
+            )
+
+    # ---------------------------
+    # record_payment — happy path
+    # ---------------------------
+
+    def test_payment_reduces_remaining_amount(self, management_user, make_contract):
+        """Valid payment reduces remaining_amount correctly."""
+        contract = make_contract(
+            id=1,
+            status=ContractStatus.DEPOSIT_RECEIVED,
+            total_amount=Decimal("5000.00"),
+            remaining_amount=Decimal("5000.00"),
+        )
+        session = MagicMock()
+
+        result = record_payment(
+            session=session,
+            current_user=management_user,
+            contract=contract,
+            amount_paid=Decimal("2000.00"),
+        )
+
+        assert result.remaining_amount == Decimal("3000.00")
+        assert result.status == ContractStatus.DEPOSIT_RECEIVED
+        session.commit.assert_called_once()
+
+    def test_payment_clears_balance_transitions_to_paid_in_full(
+            self, management_user, make_contract
+    ):
+        """Payment clearing the balance auto-transitions to PAID_IN_FULL."""
+        contract = make_contract(
+            id=1,
+            status=ContractStatus.DEPOSIT_RECEIVED,
+            total_amount=Decimal("5000.00"),
+            remaining_amount=Decimal("2000.00"),
+        )
+        session = MagicMock()
+
+        result = record_payment(
+            session=session,
+            current_user=management_user,
+            contract=contract,
+            amount_paid=Decimal("2000.00"),
+        )
+
+        assert result.remaining_amount == Decimal("0.00")
+        assert result.status == ContractStatus.PAID_IN_FULL
+        session.commit.assert_called_once()
+
+    # ---------------------------
+    # record_payment — sad path
+    # ---------------------------
+
+    def test_payment_exceeding_balance_raises(
+            self, management_user, make_contract
+    ):
+        """Payment exceeding remaining balance raises PaymentExceedsBalanceError."""
+        contract = make_contract(
+            id=1,
+            status=ContractStatus.DEPOSIT_RECEIVED,
+            total_amount=Decimal("5000.00"),
+            remaining_amount=Decimal("1000.00"),
+        )
+        session = MagicMock()
+
+        with pytest.raises(PaymentExceedsBalanceError):
+            record_payment(
+                session=session,
+                current_user=management_user,
+                contract=contract,
+                amount_paid=Decimal("2000.00"),
+            )
+
+        session.commit.assert_not_called()
+
+    def test_payment_on_non_deposit_received_contract_raises(
+            self, management_user, make_contract
+    ):
+        """Non-DEPOSIT_RECEIVED status raises InvalidStatusTransitionError."""
+        contract = make_contract(
+            id=1,
+            status=ContractStatus.SIGNED,
+        )
+        session = MagicMock()
+
+        with pytest.raises(InvalidStatusTransitionError):
+            record_payment(
+                session=session,
+                current_user=management_user,
+                contract=contract,
+                amount_paid=Decimal("1000.00"),
+            )
+
+    def test_payment_non_management_caller_raises(
+            self, commercial_user, make_contract
+    ):
+        """Non-Management caller raises PermissionDeniedError."""
+        contract = make_contract(
+            id=1,
+            status=ContractStatus.DEPOSIT_RECEIVED,
+        )
+        session = MagicMock()
+
+        with pytest.raises(PermissionDeniedError):
+            record_payment(
+                session=session,
+                current_user=commercial_user,
+                contract=contract,
+                amount_paid=Decimal("1000.00"),
             )

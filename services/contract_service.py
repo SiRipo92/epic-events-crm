@@ -16,13 +16,12 @@ from exceptions import (
     ClientNotFoundError,
     ContractNotEditableError,
     InvalidStatusTransitionError,
+    PaymentExceedsBalanceError,
 )
 from models.client import Client
 from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
 from permissions.decorators import require_role
-
-# ── Contract helpers ─────────────────────────────────────────────────────────────────
 
 
 # ── Public Interface ─────────────────────────────────────────────────────────────────
@@ -145,6 +144,7 @@ def submit_for_signature(
     session.commit()
     return contract
 
+
 @require_role("MANAGEMENT")
 def record_client_signature(
     session: Session,
@@ -182,7 +182,20 @@ def record_deposit_received(
     current_user: Collaborator,  # noqa: ARG001
     contract: Contract,
 ) -> Contract:
-    """SIGNED contract transitions to DEPOSIT_RECEIVED and sets deposit flag."""
+    """Transition contract from SIGNED to DEPOSIT_RECEIVED.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated Management collaborator.
+        contract: The Contract instance to transition.
+
+    Returns:
+        Contract: The updated contract instance.
+
+    Raises:
+        PermissionDeniedError: If current_user is not Management.
+        InvalidStatusTransitionError: If contract is not SIGNED.
+    """
 
     # Step 1 — Validate state
     if contract.status != ContractStatus.SIGNED:
@@ -196,5 +209,54 @@ def record_deposit_received(
     contract.status = ContractStatus.DEPOSIT_RECEIVED
 
     # Step 3 — Persist
+    session.commit()
+    return contract
+
+
+@require_role("MANAGEMENT")
+def record_payment(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+    contract: Contract,
+    amount_paid: Decimal,
+) -> Contract:
+    """Record a payment against a contract and reduce the remaining balance.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated Management collaborator.
+        contract: The Contract instance to record payment against.
+        amount_paid: The payment amount to deduct from remaining_amount.
+
+    Returns:
+        Contract: The updated contract instance.
+
+    Raises:
+        PermissionDeniedError: If current_user is not Management.
+        InvalidStatusTransitionError: If contract is not DEPOSIT_RECEIVED.
+        PaymentExceedsBalanceError: If payment would reduce balance below zero.
+    """
+    # Step 1 — validate status
+    if contract.status != ContractStatus.DEPOSIT_RECEIVED:
+        raise InvalidStatusTransitionError(
+            f"Cannot record payment: contract status is "
+            f"{contract.status.value}, expected DEPOSIT_RECEIVED."
+        )
+
+    # Step 2 — validate payment amount
+    new_balance = contract.remaining_amount - amount_paid
+    if new_balance < 0:
+        raise PaymentExceedsBalanceError(
+            f"Payment of {amount_paid} exceeds remaining balance "
+            f"of {contract.remaining_amount}."
+        )
+
+    # Step 3 — apply payment
+    contract.remaining_amount = new_balance
+
+    # Step 4 — auto-transition to PAID_IN_FULL if balance is zero
+    if new_balance == 0:
+        contract.status = ContractStatus.PAID_IN_FULL
+
     session.commit()
     return contract
