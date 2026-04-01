@@ -106,8 +106,10 @@ class Contract(Base):
         nullable=True,
     )
 
-    # To update later: add ForeignKey("collaborators.id") in Epic 2
-    commercial_id: Mapped[int] = mapped_column(nullable=False)
+    commercial_id: Mapped[int] = mapped_column(
+        ForeignKey("collaborators.id"),
+        nullable=False,
+    )
 
     total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     remaining_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)

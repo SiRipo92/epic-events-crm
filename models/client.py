@@ -14,7 +14,7 @@ Deletion policy:
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, func
+from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base
@@ -56,8 +56,10 @@ class Client(Base):
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     company_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
 
-    # To update later: add ForeignKey("collaborators.id") in Epic 2
-    commercial_id: Mapped[int] = mapped_column(nullable=False)
+    commercial_id: Mapped[int] = mapped_column(
+        ForeignKey("collaborators.id"),
+        nullable=False,
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
