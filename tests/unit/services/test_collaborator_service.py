@@ -17,6 +17,7 @@ from exceptions import (
     DuplicateEmailError,
     PermissionDeniedError,
     ReassignmentRequiredError,
+    ValidationError,
 )
 from models.contract import ContractStatus
 from services.collaborator_service import (
@@ -103,6 +104,19 @@ class TestCreateCollaborator:
                 first_name="Sophie",
                 last_name="Marceau",
                 email="sophie.marceau@epicevents.com",
+                role_id=2,
+                password="initialpassword123",
+            )
+
+    def test_invalid_email_raises(self, management_user, mock_session_empty):
+        """Invalid email format raises ValidationError."""
+        with pytest.raises(ValidationError):
+            create_collaborator(
+                session=mock_session_empty,
+                current_user=management_user,
+                first_name="Sophie",
+                last_name="Marceau",
+                email="notanemail",
                 role_id=2,
                 password="initialpassword123",
             )
@@ -209,6 +223,19 @@ class TestUpdateCollaborator:
                 current_user=commercial_user,
                 collaborator=target,
                 first_name="Robert",
+            )
+
+    def test_invalid_email_on_update_raises(self, management_user, make_collaborator):
+        """Invalid email format raises ValidationError on update."""
+        target = make_collaborator(id=2)
+        session = MagicMock()
+
+        with pytest.raises(ValidationError):
+            update_collaborator(
+                session=session,
+                current_user=management_user,
+                collaborator=target,
+                email="notanemail",
             )
 
 

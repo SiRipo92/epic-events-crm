@@ -8,12 +8,15 @@ via the @require_role decorator.
 
 from __future__ import annotations
 
+import re
+
 from sqlalchemy.orm import Session, joinedload
 
 from exceptions import (
     CollaboratorNotFoundError,
     DuplicateEmailError,
     ReassignmentRequiredError,
+    ValidationError,
 )
 from models.client import Client
 from models.collaborator import Collaborator
@@ -24,6 +27,23 @@ from permissions.decorators import require_role
 from services.auth_service import _delete_session_file
 
 # ── Collaborator helpers ─────────────────────────────────────────────────────
+
+
+def _validate_email(email: str) -> None:
+    """Validate that an email address has a minimally correct format.
+
+    Checks for presence of @ and a dot in the domain portion.
+    Does not perform DNS lookup or full RFC 5322 validation.
+
+    Args:
+        email: The email string to validate.
+
+    Raises:
+        ValidationError: If the email format is invalid or empty.
+    """
+    pattern = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+    if not email or not re.match(pattern, email.strip()):
+        raise ValidationError(f"'{email}' is not a valid email address.")
 
 
 def _generate_employee_number(session: Session) -> str:
@@ -138,17 +158,20 @@ def create_collaborator(
         PermissionDeniedError: If current_user is not Management.
         DuplicateEmailError: If email already exists.
     """
-    # Step 1 — check email uniqueness
+    # Step 1 - validate email with regex
+    _validate_email(email)
+
+    # Step 2 — check email uniqueness
     existing = session.query(Collaborator).filter_by(email=email).first()
     if existing:
         raise DuplicateEmailError(
             f"A collaborator with email '{email}' already exists."
         )
 
-    # Step 2 — generate employee number
+    # Step 3 — generate employee number
     employee_number = _generate_employee_number(session)
 
-    # Step 3 - build the collaborator
+    # Step 4 - build the collaborator
     collaborator = Collaborator()
     collaborator.employee_number = employee_number
     collaborator.first_name = first_name
@@ -203,6 +226,7 @@ def update_collaborator(
         collaborator.last_name = last_name
 
     if email is not None:
+        _validate_email(email)
         existing = session.query(Collaborator).filter_by(email=email).first()
         if existing and existing.id != collaborator.id:
             raise DuplicateEmailError(
