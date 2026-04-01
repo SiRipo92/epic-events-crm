@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from exceptions import (
@@ -21,6 +22,7 @@ from exceptions import (
 from models.client import Client
 from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
+from models.event import Event
 from permissions.decorators import require_role
 
 # ── Public Interface ─────────────────────────────────────────────────────────────────
@@ -296,3 +298,40 @@ def cancel_contract(
 
     session.commit()
     return contract
+
+
+@require_role("MANAGEMENT", "COMMERCIAL", "SUPPORT")
+def get_contracts_for_user(
+    session: Session,
+    current_user: Collaborator,
+) -> list[Contract]:
+    """Return contracts scoped to the current user's role.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated collaborator.
+
+    Returns:
+        list[Contract]: Contracts visible to the current user.
+
+    Raises:
+        PermissionDeniedError: If current_user has no valid role.
+    """
+    if current_user.role.name == "MANAGEMENT":
+        return list(session.scalars(select(Contract)).all())
+
+    if current_user.role.name == "COMMERCIAL":
+        return list(
+            session.scalars(
+                select(Contract).where(Contract.commercial_id == current_user.id)
+            ).all()
+        )
+
+        # SUPPORT — contracts linked to their assigned events
+    return list(
+        session.scalars(
+            select(Contract)
+            .join(Event, Event.contract_id == Contract.id)
+            .where(Event.support_id == current_user.id)
+        ).all()
+    )
