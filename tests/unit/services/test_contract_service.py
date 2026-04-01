@@ -532,21 +532,6 @@ class TestReadContractService:
     # get_contracts_for_user — happy path
     # ---------------------------
 
-    def test_management_sees_all_contracts(self, management_user):
-        """Management user gets all contracts."""
-        session = MagicMock()
-        session.scalars.return_value.all.return_value = [
-            MagicMock(), MagicMock()
-        ]
-
-        result = get_contracts_for_user(
-            session=session,
-            current_user=management_user,
-        )
-
-        assert len(result) == 2
-        session.scalars.assert_called_once()
-
     @pytest.mark.parametrize("user_fixture,expected_count", [
         ("management_user", 2),
         ("commercial_user", 1),
