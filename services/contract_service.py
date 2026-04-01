@@ -23,7 +23,6 @@ from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
 from permissions.decorators import require_role
 
-
 # ── Public Interface ─────────────────────────────────────────────────────────────────
 
 
@@ -196,7 +195,6 @@ def record_deposit_received(
         PermissionDeniedError: If current_user is not Management.
         InvalidStatusTransitionError: If contract is not SIGNED.
     """
-
     # Step 1 — Validate state
     if contract.status != ContractStatus.SIGNED:
         raise InvalidStatusTransitionError(
@@ -257,6 +255,44 @@ def record_payment(
     # Step 4 — auto-transition to PAID_IN_FULL if balance is zero
     if new_balance == 0:
         contract.status = ContractStatus.PAID_IN_FULL
+
+    session.commit()
+    return contract
+
+
+@require_role("MANAGEMENT")
+def cancel_contract(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+    contract: Contract,
+) -> Contract:
+    """Cancel a contract from any non-terminal state.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated Management collaborator.
+        contract: The Contract instance to cancel.
+
+    Returns:
+        Contract: The updated contract instance.
+
+    Raises:
+        PermissionDeniedError: If current_user is not Management.
+        InvalidStatusTransitionError: If contract is already CANCELLED
+                                      or PAID_IN_FULL.
+    """
+    # Step 1 — check contract is cancellable
+    if contract.status in (ContractStatus.CANCELLED, ContractStatus.PAID_IN_FULL):
+        raise InvalidStatusTransitionError(
+            f"Cannot cancel contract: status is already " f"{contract.status.value}."
+        )
+
+    # Step 2 — cancel linked event if one exists
+    if contract.event is not None:
+        contract.event.is_cancelled = True
+
+    # Step 3 — cancel contract
+    contract.status = ContractStatus.CANCELLED
 
     session.commit()
     return contract

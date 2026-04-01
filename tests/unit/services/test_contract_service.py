@@ -19,6 +19,7 @@ from exceptions import (
 )
 from models.contract import ContractStatus
 from services.contract_service import (
+    cancel_contract,
     create_contract,
     edit_contract,
     record_client_signature,
@@ -317,7 +318,7 @@ class TestContractStatusTransitions:
             )
 
     def test_deposit_non_management_user_raises(self, commercial_user, make_contract):
-        """Test permissions on recording a deposit received"""
+        """Test permissions on recording a deposit received."""
         contract = make_contract(status=ContractStatus.SIGNED)
         session = MagicMock()
 
@@ -354,7 +355,7 @@ class TestContractStatusTransitions:
         session.commit.assert_called_once()
 
     def test_payment_clears_balance_transitions_to_paid_in_full(
-            self, management_user, make_contract
+        self, management_user, make_contract
     ):
         """Payment clearing the balance auto-transitions to PAID_IN_FULL."""
         contract = make_contract(
@@ -380,9 +381,7 @@ class TestContractStatusTransitions:
     # record_payment — sad path
     # ---------------------------
 
-    def test_payment_exceeding_balance_raises(
-            self, management_user, make_contract
-    ):
+    def test_payment_exceeding_balance_raises(self, management_user, make_contract):
         """Payment exceeding remaining balance raises PaymentExceedsBalanceError."""
         contract = make_contract(
             id=1,
@@ -403,7 +402,7 @@ class TestContractStatusTransitions:
         session.commit.assert_not_called()
 
     def test_payment_on_non_deposit_received_contract_raises(
-            self, management_user, make_contract
+        self, management_user, make_contract
     ):
         """Non-DEPOSIT_RECEIVED status raises InvalidStatusTransitionError."""
         contract = make_contract(
@@ -420,9 +419,7 @@ class TestContractStatusTransitions:
                 amount_paid=Decimal("1000.00"),
             )
 
-    def test_payment_non_management_caller_raises(
-            self, commercial_user, make_contract
-    ):
+    def test_payment_non_management_caller_raises(self, commercial_user, make_contract):
         """Non-Management caller raises PermissionDeniedError."""
         contract = make_contract(
             id=1,
@@ -436,4 +433,92 @@ class TestContractStatusTransitions:
                 current_user=commercial_user,
                 contract=contract,
                 amount_paid=Decimal("1000.00"),
+            )
+
+    # ---------------------------
+    # cancel_contract — happy path
+    # ---------------------------
+
+    def test_cancel_contract_with_linked_event(
+        self, management_user, make_contract, make_event
+    ):
+        """Cancelling a contract also cancels the linked event."""
+        event = make_event(id=1, is_cancelled=False)
+        contract = make_contract(
+            id=1,
+            status=ContractStatus.DEPOSIT_RECEIVED,
+        )
+        contract.event = event
+        session = MagicMock()
+
+        result = cancel_contract(
+            session=session,
+            current_user=management_user,
+            contract=contract,
+        )
+
+        assert result.status == ContractStatus.CANCELLED
+        assert event.is_cancelled is True
+        session.commit.assert_called_once()
+
+    def test_cancel_contract_without_event(self, management_user, make_contract):
+        """Cancelling a contract with no linked event cancels contract only."""
+        contract = make_contract(
+            id=1,
+            status=ContractStatus.SIGNED,
+        )
+        contract.event = None
+        session = MagicMock()
+
+        result = cancel_contract(
+            session=session,
+            current_user=management_user,
+            contract=contract,
+        )
+
+        assert result.status == ContractStatus.CANCELLED
+        session.commit.assert_called_once()
+
+    # ---------------------------
+    # cancel_contract — sad path
+    # ---------------------------
+
+    def test_cancel_already_cancelled_contract_raises(
+        self, management_user, make_contract
+    ):
+        """Already CANCELLED contract raises InvalidStatusTransitionError."""
+        contract = make_contract(id=1, status=ContractStatus.CANCELLED)
+        session = MagicMock()
+
+        with pytest.raises(InvalidStatusTransitionError):
+            cancel_contract(
+                session=session,
+                current_user=management_user,
+                contract=contract,
+            )
+
+    def test_cancel_paid_in_full_contract_raises(self, management_user, make_contract):
+        """PAID_IN_FULL contract raises InvalidStatusTransitionError."""
+        contract = make_contract(id=1, status=ContractStatus.PAID_IN_FULL)
+        session = MagicMock()
+
+        with pytest.raises(InvalidStatusTransitionError):
+            cancel_contract(
+                session=session,
+                current_user=management_user,
+                contract=contract,
+            )
+
+    def test_cancel_contract_non_management_raises(
+        self, commercial_user, make_contract
+    ):
+        """Non-Management caller raises PermissionDeniedError."""
+        contract = make_contract(id=1, status=ContractStatus.DRAFT)
+        session = MagicMock()
+
+        with pytest.raises(PermissionDeniedError):
+            cancel_contract(
+                session=session,
+                current_user=commercial_user,
+                contract=contract,
             )
