@@ -10,11 +10,17 @@ from unittest.mock import MagicMock
 import pytest
 
 from exceptions import (
+    ClientNotFoundError,
     DuplicateEmailError,
     PermissionDeniedError,
     ValidationError,
 )
-from services.client_service import create_client, get_clients_for_user, update_client
+from services.client_service import (
+    create_client,
+    get_client_by_id,
+    get_clients_for_user,
+    update_client,
+)
 
 
 class TestWriteClientService:
@@ -60,32 +66,6 @@ class TestWriteClientService:
                 first_name="Marie",
                 last_name="Curie",
                 email="already.exists@example.com",
-            )
-
-    def test_create_client_invalid_email_raises(
-        self, commercial_user, mock_session_empty
-    ):
-        """Invalid email format raises ValidationError."""
-        with pytest.raises(ValidationError):
-            create_client(
-                session=mock_session_empty,
-                current_user=commercial_user,
-                first_name="Marie",
-                last_name="Curie",
-                email="notanemail",
-            )
-
-    def test_create_client_non_commercial_caller_raises(self, management_user):
-        """Non-Commercial caller raises PermissionDeniedError."""
-        session = MagicMock()
-
-        with pytest.raises(PermissionDeniedError):
-            create_client(
-                session=session,
-                current_user=management_user,
-                first_name="Marie",
-                last_name="Curie",
-                email="marie.curie@example.com",
             )
 
     def test_create_client_commercial_id_cannot_be_overridden(
@@ -193,35 +173,59 @@ class TestWriteClientService:
                 email="already.taken@example.com",
             )
 
-    def test_update_client_invalid_email_raises(self, commercial_user, make_client):
-        """Invalid email format raises ValidationError on update."""
-        test_client = make_client(
-            id=1,
-            commercial_id=commercial_user.id,
-        )
-        session = MagicMock()
+    # ---------------------------
+    # Shared Permissions Checks for Write Operations
+    # ---------------------------
 
-        with pytest.raises(ValidationError):
-            update_client(
-                session=session,
-                current_user=commercial_user,
-                client=test_client,
-                email="notanemail",
-            )
-
-    def test_update_client_non_commercial_caller_raises(
-        self, management_user, make_client
+    @pytest.mark.parametrize(
+        "fn,extra_kwargs",
+        [
+            (
+                create_client,
+                {
+                    "first_name": "Marie",
+                    "last_name": "Curie",
+                    "email": "marie.curie@example.com",
+                },
+            ),
+            (update_client, {"client": None}),
+        ],
+    )
+    def test_non_commercial_caller_raises_on_write(
+        self, management_user, fn, extra_kwargs
     ):
-        """Non-Commercial caller raises PermissionDeniedError."""
-        test_client = make_client(id=1, commercial_id=1)
+        """Non-Commercial caller raises PermissionDeniedError on any write."""
         session = MagicMock()
+        if fn == update_client:
+            extra_kwargs["client"] = MagicMock(commercial_id=1)
 
         with pytest.raises(PermissionDeniedError):
-            update_client(
-                session=session,
-                current_user=management_user,
-                client=test_client,
-                first_name="Hacked",
+            fn(session=session, current_user=management_user, **extra_kwargs)
+
+    # ---------------------------
+    # Shared validation — email
+    # ---------------------------
+
+    @pytest.mark.parametrize(
+        "fn,extra_kwargs",
+        [
+            (create_client, {"first_name": "Marie", "last_name": "Curie"}),
+            (update_client, {"client": None}),  # client set in test body
+        ],
+    )
+    def test_invalid_email_raises_on_write(
+        self, commercial_user, mock_session_empty, fn, extra_kwargs
+    ):
+        """Invalid email raises ValidationError on both create and update."""
+        if fn == update_client:
+            extra_kwargs["client"] = MagicMock(commercial_id=commercial_user.id)
+
+        with pytest.raises(ValidationError):
+            fn(
+                session=mock_session_empty,
+                current_user=commercial_user,
+                email="notanemail",
+                **extra_kwargs,
             )
 
 
@@ -229,7 +233,7 @@ class TestReadClientService:
     """Tests for client read operations — scoped by role."""
 
     # ---------------------------
-    # Read clients - happy path
+    # get_clients_for_user — happy path
     # ---------------------------
 
     def test_management_sees_all_clients(self, management_user):
@@ -275,3 +279,76 @@ class TestReadClientService:
         )
 
         assert len(result) == 1
+
+    # ---------------------------
+    # get_client_by_id — happy path
+    # ---------------------------
+
+    @pytest.mark.parametrize(
+        "role_fixture,client_kwargs,scalars_clients",
+        [
+            ("management_user", {"id": 1}, None),
+            ("commercial_user", {"id": 1}, None),  # commercial_id set in test
+            ("support_user", {"id": 1}, "linked"),
+        ],
+    )
+    def test_get_client_by_id_returns_client(
+        self, request, make_client, role_fixture, client_kwargs, scalars_clients
+    ):
+        """Each role can retrieve a client within their scope."""
+        user = request.getfixturevalue(role_fixture)
+
+        if role_fixture == "commercial_user":
+            client_kwargs["commercial_id"] = user.id
+
+        test_client = make_client(**client_kwargs)
+        session = MagicMock()
+        session.get.return_value = test_client
+
+        if scalars_clients == "linked":
+            session.scalars.return_value.all.return_value = [test_client]
+
+        result = get_client_by_id(
+            session=session,
+            current_user=user,
+            client_id=1,
+        )
+
+        assert result == test_client
+
+    # ---------------------------
+    # get_client_by_id - sad path
+    # ---------------------------
+
+    def test_commercial_retrieves_other_client_raises(
+        self, commercial_user, make_client
+    ):
+        """Commercial retrieving anothers' client raises ClientNotFoundError."""
+        test_client = make_client(id=1, commercial_id=999)
+
+        session = MagicMock()
+        session.get.return_value = test_client
+
+        with pytest.raises(ClientNotFoundError):
+            get_client_by_id(
+                session=session,
+                current_user=commercial_user,
+                client_id=1,
+            )
+
+    def test_support_retrieves_unlinked_client_raises(self, support_user, make_client):
+        """Support retrieving a client not linked to them raises ClientNotFoundError."""
+        test_client = make_client(id=1)
+        other_client = make_client(id=2)
+
+        session = MagicMock()
+        session.get.return_value = test_client
+        # Support only has access to other_client, not client id=1
+        session.scalars.return_value.all.return_value = [other_client]
+
+        with pytest.raises(ClientNotFoundError):
+            get_client_by_id(
+                session=session,
+                current_user=support_user,
+                client_id=1,
+            )

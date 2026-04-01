@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from exceptions import (
+    ClientNotFoundError,
     DuplicateEmailError,
     PermissionDeniedError,
 )
@@ -25,6 +26,16 @@ from models.contract import Contract
 from models.event import Event
 from permissions.decorators import require_role
 from utils.validation import validate_email
+
+# ── Client helpers ──────────────────────────────────────────────────────────────────
+
+
+def _client_not_found(client_id: int) -> ClientNotFoundError:
+    """Return a ClientNotFoundError for the given ID."""
+    return ClientNotFoundError(f"No client found with ID {client_id}.")
+
+
+# ── Public Interface ─────────────────────────────────────────────────────────────────
 
 
 @require_role("COMMERCIAL")
@@ -144,7 +155,18 @@ def get_clients_for_user(
     session: Session,
     current_user: Collaborator,
 ) -> list[Client]:
-    """Return clients scoped to the current user's role."""
+    """Return clients scoped to the current user's role.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated collaborator.
+
+    Returns:
+        list[Client]: Clients visible to the current user based on role.
+
+    Raises:
+        PermissionDeniedError: If current_user has no valid role.
+    """
     if current_user.role.name == "MANAGEMENT":
         return list(session.scalars(select(Client)).all())
 
@@ -164,3 +186,50 @@ def get_clients_for_user(
             .where(Event.support_id == current_user.id)
         ).all()
     )
+
+
+@require_role("MANAGEMENT", "COMMERCIAL", "SUPPORT")
+def get_client_by_id(
+    session: Session,
+    current_user: Collaborator,
+    client_id: int,
+) -> Client:
+    """Return a single client by ID scoped to the current user's role.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated collaborator.
+        client_id: The primary key of the client to retrieve.
+
+    Returns:
+        Client: The matching client instance.
+
+    Raises:
+        PermissionDeniedError: If current_user has no valid role.
+        ClientNotFoundError: If client does not exist or is outside
+                             the user's scope.
+    """
+    client: Client | None = session.get(Client, client_id)
+
+    if not client:
+        raise _client_not_found(client_id)
+
+    if current_user.role.name == "MANAGEMENT":
+        return client
+
+    if current_user.role.name == "COMMERCIAL":
+        if client.commercial_id != current_user.id:
+            raise _client_not_found(client_id)
+        return client
+
+    # SUPPORT — check client is linked to one of their assigned events
+    linked_client_ids = {
+        c.id
+        for c in get_clients_for_user(
+            session=session,
+            current_user=current_user,
+        )
+    }
+    if client_id not in linked_client_ids:
+        raise _client_not_found(client_id)
+    return client
