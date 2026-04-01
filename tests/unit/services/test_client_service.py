@@ -14,10 +14,7 @@ from exceptions import (
     PermissionDeniedError,
     ValidationError,
 )
-from services.client_service import (
-    create_client,
-    update_client,
-)
+from services.client_service import create_client, get_clients_for_user, update_client
 
 
 class TestWriteClientService:
@@ -226,3 +223,55 @@ class TestWriteClientService:
                 client=test_client,
                 first_name="Hacked",
             )
+
+
+class TestReadClientService:
+    """Tests for client read operations — scoped by role."""
+
+    # ---------------------------
+    # Read clients - happy path
+    # ---------------------------
+
+    def test_management_sees_all_clients(self, management_user):
+        """Management user gets all clients."""
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [MagicMock(), MagicMock()]
+
+        result = get_clients_for_user(
+            session=session,
+            current_user=management_user,
+        )
+
+        assert len(result) == 2
+        session.scalars.assert_called_once()
+
+    def test_commercial_sees_only_own_clients(self, commercial_user, make_client):
+        """Commercial user gets only their own clients."""
+        own_client = make_client(id=1, commercial_id=commercial_user.id)
+
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [own_client]
+
+        result = get_clients_for_user(
+            session=session,
+            current_user=commercial_user,
+        )
+
+        assert len(result) == 1
+        assert result[0].commercial_id == commercial_user.id
+
+    def test_support_sees_only_clients_linked_to_assigned_events(
+        self, support_user, make_client
+    ):
+        """Support user gets only clients linked to their assigned events."""
+        linked_client = make_client(id=1)
+
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [linked_client]
+
+        result = get_clients_for_user(
+            session=session,
+            current_user=support_user,
+        )
+
+        assert len(result) == 1

@@ -12,6 +12,7 @@ to them.
 
 from __future__ import annotations
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from exceptions import (
@@ -20,6 +21,8 @@ from exceptions import (
 )
 from models.client import Client
 from models.collaborator import Collaborator
+from models.contract import Contract
+from models.event import Event
 from permissions.decorators import require_role
 from utils.validation import validate_email
 
@@ -134,3 +137,30 @@ def update_client(
 
     session.commit()
     return client
+
+
+@require_role("MANAGEMENT", "COMMERCIAL", "SUPPORT")
+def get_clients_for_user(
+    session: Session,
+    current_user: Collaborator,
+) -> list[Client]:
+    """Return clients scoped to the current user's role."""
+    if current_user.role.name == "MANAGEMENT":
+        return list(session.scalars(select(Client)).all())
+
+    if current_user.role.name == "COMMERCIAL":
+        return list(
+            session.scalars(
+                select(Client).where(Client.commercial_id == current_user.id)
+            ).all()
+        )
+
+    # SUPPORT
+    return list(
+        session.scalars(
+            select(Client)
+            .join(Client.contracts)
+            .join(Event, Event.contract_id == Contract.id)
+            .where(Event.support_id == current_user.id)
+        ).all()
+    )
