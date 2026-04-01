@@ -141,3 +141,33 @@ def submit_for_signature(
     contract.status = ContractStatus.PENDING
     session.commit()
     return contract
+
+@require_role("MANAGEMENT")
+def record_client_signature(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+    contract: Contract,
+) -> Contract:
+    """Transition contract from PENDING to SIGNED.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated Management collaborator.
+        contract: The Contract instance to transition.
+
+    Returns:
+        Contract: The updated contract instance.
+
+    Raises:
+        PermissionDeniedError: If current_user is not Management.
+        InvalidStatusTransitionError: If contract is not PENDING.
+    """
+    if contract.status != ContractStatus.PENDING:
+        raise InvalidStatusTransitionError(
+            f"Cannot record signature: contract status is "
+            f"{contract.status.value}, expected PENDING."
+        )
+
+    contract.status = ContractStatus.SIGNED
+    session.commit()
+    return contract

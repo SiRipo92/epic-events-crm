@@ -21,6 +21,7 @@ from services.contract_service import (
     create_contract,
     edit_contract,
     submit_for_signature,
+    record_client_signature,
 )
 
 
@@ -216,6 +217,58 @@ class TestContractStatusTransitions:
 
         with pytest.raises(PermissionDeniedError):
             submit_for_signature(
+                session=session,
+                current_user=commercial_user,
+                contract=contract,
+            )
+
+    # ---------------------------
+    # record_client_signature — happy path
+    # ---------------------------
+
+    def test_pending_contract_transitions_to_signed(
+            self, management_user, make_contract
+    ):
+        """PENDING contract transitions to SIGNED on signature."""
+        contract = make_contract(id=1, status=ContractStatus.PENDING)
+        session = MagicMock()
+
+        result = record_client_signature(
+            session=session,
+            current_user=management_user,
+            contract=contract,
+        )
+
+        assert result.status == ContractStatus.SIGNED
+        session.commit.assert_called_once()
+
+    # ---------------------------
+    # record_client_signature — sad path
+    # ---------------------------
+
+    def test_non_pending_contract_raises_on_signature(
+            self, management_user, make_contract
+    ):
+        """Non-PENDING contract raises InvalidStatusTransitionError."""
+        contract = make_contract(id=1, status=ContractStatus.DRAFT)
+        session = MagicMock()
+
+        with pytest.raises(InvalidStatusTransitionError):
+            record_client_signature(
+                session=session,
+                current_user=management_user,
+                contract=contract,
+            )
+
+    def test_record_signature_non_management_raises(
+            self, commercial_user, make_contract
+    ):
+        """Non-Management caller raises PermissionDeniedError."""
+        contract = make_contract(id=1, status=ContractStatus.PENDING)
+        session = MagicMock()
+
+        with pytest.raises(PermissionDeniedError):
+            record_client_signature(
                 session=session,
                 current_user=commercial_user,
                 contract=contract,
