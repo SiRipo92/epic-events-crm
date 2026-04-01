@@ -16,6 +16,7 @@ from exceptions import (
 )
 from services.client_service import (
     create_client,
+    update_client,
 )
 
 
@@ -48,17 +49,6 @@ class TestWriteClientService:
     # create_client — sad path
     # ---------------------------
 
-    def test_client_invalid_email_raises(self, commercial_user, mock_session_empty):
-        """Invalid email format raises ValidationError."""
-        with pytest.raises(ValidationError):
-            create_client(
-                session=mock_session_empty,
-                current_user=commercial_user,
-                first_name="Marie",
-                last_name="Curie",
-                email="notanemail",
-            )
-
     def test_create_client_duplicate_email_raises(self, commercial_user):
         """Duplicate email raises DuplicateEmailError."""
         session = MagicMock()
@@ -73,6 +63,19 @@ class TestWriteClientService:
                 first_name="Marie",
                 last_name="Curie",
                 email="already.exists@example.com",
+            )
+
+    def test_create_client_invalid_email_raises(
+        self, commercial_user, mock_session_empty
+    ):
+        """Invalid email format raises ValidationError."""
+        with pytest.raises(ValidationError):
+            create_client(
+                session=mock_session_empty,
+                current_user=commercial_user,
+                first_name="Marie",
+                last_name="Curie",
+                email="notanemail",
             )
 
     def test_create_client_non_commercial_caller_raises(self, management_user):
@@ -102,3 +105,124 @@ class TestWriteClientService:
 
         assert result.commercial_id == commercial_user.id
         assert result.commercial_id != 999
+
+    # ---------------------------
+    # update_client — happy path
+    # ---------------------------
+
+    def test_update_client_owner_can_update(self, commercial_user, make_client):
+        """Owner can update their own client."""
+        test_client = make_client(
+            id=1,
+            commercial_id=commercial_user.id,
+        )
+        session = MagicMock()
+        session.query.return_value.filter_by.return_value.first.return_value = None
+
+        result = update_client(
+            session=session,
+            current_user=commercial_user,
+            client=test_client,
+            first_name="Updated",
+        )
+
+        assert result.first_name == "Updated"
+        session.commit.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "field, value",
+        [
+            ("last_name", "Curie"),
+            ("phone", "0612345678"),
+            ("company_name", "Lab Corp"),
+        ],
+    )
+    def test_update_client_partial_update_applies_field(
+        self, commercial_user, make_client, field, value
+    ):
+        """Each updatable field is applied when provided."""
+        test_client = make_client(id=1, commercial_id=commercial_user.id)
+        session = MagicMock()
+        session.query.return_value.filter_by.return_value.first.return_value = None
+
+        update_client(
+            session=session,
+            current_user=commercial_user,
+            client=test_client,
+            **{field: value},
+        )
+
+        assert getattr(test_client, field) == value
+
+    # ---------------------------
+    # update_client — sad path
+    # ---------------------------
+
+    def test_update_client_non_owner_raises(self, commercial_user, make_client):
+        """Commercial updating another's client raises PermissionDeniedError."""
+        test_client = make_client(
+            id=1,
+            commercial_id=999,  # owned by a different commercial
+        )
+        session = MagicMock()
+
+        with pytest.raises(PermissionDeniedError):
+            update_client(
+                session=session,
+                current_user=commercial_user,
+                client=test_client,
+                first_name="Hacked",
+            )
+
+    def test_update_client_duplicate_email_raises(self, commercial_user, make_client):
+        """Updating to an existing email raises DuplicateEmailError."""
+        test_client = make_client(
+            id=1,
+            commercial_id=commercial_user.id,
+        )
+        existing = make_client(
+            id=2,
+            email="already.taken@example.com",
+            commercial_id=commercial_user.id,
+        )
+        session = MagicMock()
+        session.query.return_value.filter_by.return_value.first.return_value = existing
+
+        with pytest.raises(DuplicateEmailError):
+            update_client(
+                session=session,
+                current_user=commercial_user,
+                client=test_client,
+                email="already.taken@example.com",
+            )
+
+    def test_update_client_invalid_email_raises(self, commercial_user, make_client):
+        """Invalid email format raises ValidationError on update."""
+        test_client = make_client(
+            id=1,
+            commercial_id=commercial_user.id,
+        )
+        session = MagicMock()
+
+        with pytest.raises(ValidationError):
+            update_client(
+                session=session,
+                current_user=commercial_user,
+                client=test_client,
+                email="notanemail",
+            )
+
+    def test_update_client_non_commercial_caller_raises(
+        self, management_user, make_client
+    ):
+        """Non-Commercial caller raises PermissionDeniedError."""
+        test_client = make_client(id=1, commercial_id=1)
+        session = MagicMock()
+
+        with pytest.raises(PermissionDeniedError):
+            update_client(
+                session=session,
+                current_user=management_user,
+                client=test_client,
+                first_name="Hacked",
+            )
