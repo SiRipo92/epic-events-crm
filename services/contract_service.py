@@ -12,7 +12,12 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from exceptions import ClientNotFoundError, ContractNotEditableError
+from exceptions import (
+    ClientNotFoundError,
+    ContractNotEditableError,
+    InvalidStatusTransitionError,
+    PaymentExceedsBalanceError,
+)
 from models.client import Client
 from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
@@ -103,6 +108,191 @@ def edit_contract(
 
     if commercial_id is not None:
         contract.commercial_id = commercial_id
+
+    session.commit()
+    return contract
+
+
+@require_role("MANAGEMENT")
+def submit_for_signature(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+    contract: Contract,
+) -> Contract:
+    """Transition contract from DRAFT to PENDING.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated Management collaborator.
+        contract: The Contract instance to transition.
+
+    Returns:
+        Contract: The updated contract instance.
+
+    Raises:
+        PermissionDeniedError: If current_user is not Management.
+        InvalidStatusTransitionError: If contract is not in DRAFT status.
+    """
+    if contract.status != ContractStatus.DRAFT:
+        raise InvalidStatusTransitionError(
+            f"Cannot submit for signature: contract status is "
+            f"{contract.status.value}, expected DRAFT."
+        )
+
+    contract.status = ContractStatus.PENDING
+    session.commit()
+    return contract
+
+
+@require_role("MANAGEMENT")
+def record_client_signature(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+    contract: Contract,
+) -> Contract:
+    """Transition contract from PENDING to SIGNED.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated Management collaborator.
+        contract: The Contract instance to transition.
+
+    Returns:
+        Contract: The updated contract instance.
+
+    Raises:
+        PermissionDeniedError: If current_user is not Management.
+        InvalidStatusTransitionError: If contract is not PENDING.
+    """
+    if contract.status != ContractStatus.PENDING:
+        raise InvalidStatusTransitionError(
+            f"Cannot record signature: contract status is "
+            f"{contract.status.value}, expected PENDING."
+        )
+
+    contract.status = ContractStatus.SIGNED
+    session.commit()
+    return contract
+
+
+@require_role("MANAGEMENT")
+def record_deposit_received(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001
+    contract: Contract,
+) -> Contract:
+    """Transition contract from SIGNED to DEPOSIT_RECEIVED.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated Management collaborator.
+        contract: The Contract instance to transition.
+
+    Returns:
+        Contract: The updated contract instance.
+
+    Raises:
+        PermissionDeniedError: If current_user is not Management.
+        InvalidStatusTransitionError: If contract is not SIGNED.
+    """
+    # Step 1 — Validate state
+    if contract.status != ContractStatus.SIGNED:
+        raise InvalidStatusTransitionError(
+            f"Cannot record deposit: contract status is "
+            f"{contract.status.value}, expected SIGNED."
+        )
+
+    # Step 2 — Apply state change
+    contract.deposit_received = True
+    contract.status = ContractStatus.DEPOSIT_RECEIVED
+
+    # Step 3 — Persist
+    session.commit()
+    return contract
+
+
+@require_role("MANAGEMENT")
+def record_payment(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+    contract: Contract,
+    amount_paid: Decimal,
+) -> Contract:
+    """Record a payment against a contract and reduce the remaining balance.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated Management collaborator.
+        contract: The Contract instance to record payment against.
+        amount_paid: The payment amount to deduct from remaining_amount.
+
+    Returns:
+        Contract: The updated contract instance.
+
+    Raises:
+        PermissionDeniedError: If current_user is not Management.
+        InvalidStatusTransitionError: If contract is not DEPOSIT_RECEIVED.
+        PaymentExceedsBalanceError: If payment would reduce balance below zero.
+    """
+    # Step 1 — validate status
+    if contract.status != ContractStatus.DEPOSIT_RECEIVED:
+        raise InvalidStatusTransitionError(
+            f"Cannot record payment: contract status is "
+            f"{contract.status.value}, expected DEPOSIT_RECEIVED."
+        )
+
+    # Step 2 — validate payment amount
+    new_balance = contract.remaining_amount - amount_paid
+    if new_balance < 0:
+        raise PaymentExceedsBalanceError(
+            f"Payment of {amount_paid} exceeds remaining balance "
+            f"of {contract.remaining_amount}."
+        )
+
+    # Step 3 — apply payment
+    contract.remaining_amount = new_balance
+
+    # Step 4 — auto-transition to PAID_IN_FULL if balance is zero
+    if new_balance == 0:
+        contract.status = ContractStatus.PAID_IN_FULL
+
+    session.commit()
+    return contract
+
+
+@require_role("MANAGEMENT")
+def cancel_contract(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+    contract: Contract,
+) -> Contract:
+    """Cancel a contract from any non-terminal state.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated Management collaborator.
+        contract: The Contract instance to cancel.
+
+    Returns:
+        Contract: The updated contract instance.
+
+    Raises:
+        PermissionDeniedError: If current_user is not Management.
+        InvalidStatusTransitionError: If contract is already CANCELLED
+                                      or PAID_IN_FULL.
+    """
+    # Step 1 — check contract is cancellable
+    if contract.status in (ContractStatus.CANCELLED, ContractStatus.PAID_IN_FULL):
+        raise InvalidStatusTransitionError(
+            f"Cannot cancel contract: status is already " f"{contract.status.value}."
+        )
+
+    # Step 2 — cancel linked event if one exists
+    if contract.event is not None:
+        contract.event.is_cancelled = True
+
+    # Step 3 — cancel contract
+    contract.status = ContractStatus.CANCELLED
 
     session.commit()
     return contract
