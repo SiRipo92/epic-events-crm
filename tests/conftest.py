@@ -302,6 +302,9 @@ def default_event_kwargs():
         "title": "Annual Gala",
         "start_date": datetime(2025, 9, 1, 9, 0),
         "end_date": datetime(2025, 9, 1, 17, 0),
+        "location_street": "34 rue de la Paix",
+        "location_city": "Paris",
+        "location_zip": "75001",
     }
 
 
