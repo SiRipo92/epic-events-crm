@@ -1,7 +1,8 @@
 """Unit tests for shared validation utilities."""
 
-import pytest
 from datetime import datetime
+
+import pytest
 
 from exceptions import ValidationError
 from utils.validation import validate_email, validate_event_dates, validate_location
@@ -14,13 +15,16 @@ class TestValidateEmail:
         """Valid email raises no error."""
         validate_email("test@example.com")
 
-    @pytest.mark.parametrize("email", [
-        "notanemail",
-        "missing@nodot",
-        "",
-        "   ",
-        "@nodomain.com",
-    ])
+    @pytest.mark.parametrize(
+        "email",
+        [
+            "notanemail",
+            "missing@nodot",
+            "",
+            "   ",
+            "@nodomain.com",
+        ],
+    )
     def test_invalid_email_raises(self, email):
         """Invalid email format raises ValidationError."""
         with pytest.raises(ValidationError):
@@ -38,12 +42,15 @@ class TestValidateLocation:
             location_zip="75001",
         )
 
-    @pytest.mark.parametrize("street,city,zip_code", [
-        (None, "Paris", "75001"),
-        ("34 rue de la Paix", None, "75001"),
-        ("34 rue de la Paix", "Paris", None),
-        (None, None, None),
-    ])
+    @pytest.mark.parametrize(
+        "street,city,zip_code",
+        [
+            (None, "Paris", "75001"),
+            ("34 rue de la Paix", None, "75001"),
+            ("34 rue de la Paix", "Paris", None),
+            (None, None, None),
+        ],
+    )
     def test_missing_location_field_raises(self, street, city, zip_code):
         """Missing any required location field raises ValidationError."""
         with pytest.raises(ValidationError):

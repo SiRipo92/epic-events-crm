@@ -14,6 +14,7 @@ from exceptions import ValidationError
 
 # ---- For Clients and Collaborators
 
+
 def validate_email(email: str) -> None:
     """Validate that an email address has a minimally correct format.
 
@@ -30,7 +31,9 @@ def validate_email(email: str) -> None:
     if not email or not re.match(pattern, email.strip()):
         raise ValidationError(f"'{email}' is not a valid email address.")
 
+
 # ---- For Events
+
 
 def validate_location(
     location_street: str | None,
@@ -60,6 +63,7 @@ def validate_location(
             f"Missing required location fields: {', '.join(missing)}."
         )
 
+
 def validate_event_dates(start_date: datetime, end_date: datetime) -> None:
     """Validate that event start date is before end date.
 
@@ -71,6 +75,4 @@ def validate_event_dates(start_date: datetime, end_date: datetime) -> None:
         ValidationError: If start_date is not before end_date.
     """
     if start_date >= end_date:
-        raise ValidationError(
-            "Event start date must be before end date."
-        )
+        raise ValidationError("Event start date must be before end date.")
