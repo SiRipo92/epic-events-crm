@@ -7,13 +7,14 @@ update, and retrieval.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from exceptions import (
     ContractNotEligibleError,
+    EventNotFoundError,
     InvalidAssignmentError,
     PermissionDeniedError,
     SchedulingConflictWarning,
@@ -23,6 +24,14 @@ from models.contract import Contract, ContractStatus
 from models.event import Event
 from permissions.decorators import require_role
 from utils.validation import validate_event_dates, validate_location
+
+# ── Event  Helper ─────────────────────────────────────────────────────────────────
+
+
+def _event_not_found(event_id: int) -> EventNotFoundError:
+    """Return an EventNotFoundError for the given ID."""
+    return EventNotFoundError(f"No event found with ID {event_id}.")
+
 
 # ── Public Interface ─────────────────────────────────────────────────────────────────
 
@@ -221,3 +230,109 @@ def assign_support(
     event.support_id = support.id
     session.commit()
     return event
+
+
+@require_role("MANAGEMENT", "COMMERCIAL", "SUPPORT")
+def get_events_for_user(
+    session: Session,
+    current_user: Collaborator,
+) -> list[Event]:
+    """Return events scoped to the current user's role.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated collaborator.
+
+    Returns:
+        list[Event]: Events visible to the current user.
+
+    Raises:
+        PermissionDeniedError: If current_user has no valid role.
+    """
+    if current_user.role.name == "MANAGEMENT":
+        return list(session.scalars(select(Event)).all())
+
+    if current_user.role.name == "COMMERCIAL":
+        return list(
+            session.scalars(
+                select(Event)
+                .join(Contract, Contract.id == Event.contract_id)
+                .where(Contract.commercial_id == current_user.id)
+            ).all()
+        )
+
+    # SUPPORT
+    return list(
+        session.scalars(select(Event).where(Event.support_id == current_user.id)).all()
+    )
+
+
+def filter_events(
+    events: list[Event],
+    support_unassigned: bool | None = None,
+    upcoming: bool | None = None,
+) -> list[Event]:
+    """Filter a scoped list of events by optional criteria.
+
+    Filters are applied on top of an already-scoped list from
+    get_events_for_user() — never bypasses role scoping.
+
+    Args:
+        events: Pre-scoped list of events to filter.
+        support_unassigned: If True, return only events with no
+                            support assigned.
+        upcoming: If True, return only events where start_date
+                  is today or in the future.
+
+    Returns:
+        list[Event]: Filtered events matching all provided criteria.
+    """
+    results = events
+
+    if support_unassigned:
+        results = [e for e in results if e.support_id is None]
+
+    if upcoming:
+        now = datetime.now(timezone.utc)
+        results = [e for e in results if e.start_date >= now]
+
+    return results
+
+
+@require_role("MANAGEMENT", "COMMERCIAL", "SUPPORT")
+def get_event_by_id(
+    session: Session,
+    current_user: Collaborator,
+    event_id: int,
+) -> Event:
+    """Return a single event if within user's scope.
+
+    Raises:
+        EventNotFoundError: If event does not exist or is not accessible.
+    """
+    # Step 1 - Fetch event
+    event: Event | None = session.get(Event, event_id)
+
+    if not event:
+        raise _event_not_found(event_id)
+
+    # Step 2 - Role-based access control
+
+    # Management → full access
+    if current_user.role.name == "MANAGEMENT":
+        return event
+
+    # COMMERCIAL → only events tied to clients of theirs
+    if current_user.role.name == "COMMERCIAL":
+        if event.contract.commercial_id != current_user.id:
+            raise _event_not_found(event_id)
+        return event
+
+    # SUPPORT → only events assigned to them
+    if current_user.role.name == "SUPPORT":
+        if event.support_id != current_user.id:
+            raise _event_not_found(event_id)
+        return event
+
+    # Shouldn't need to be reached
+    raise _event_not_found(event_id)

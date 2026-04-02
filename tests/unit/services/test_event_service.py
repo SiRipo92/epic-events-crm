@@ -11,6 +11,7 @@ import pytest
 
 from exceptions import (
     ContractNotEligibleError,
+    EventNotFoundError,
     InvalidAssignmentError,
     PermissionDeniedError,
     SchedulingConflictWarning,
@@ -19,8 +20,20 @@ from models.contract import ContractStatus
 from services.event_service import (
     assign_support,
     create_event,
+    filter_events,
+    get_event_by_id,
+    get_events_for_user,
     update_event,
 )
+
+
+# ---------------------------
+# Helper function
+# ---------------------------
+def _attach_contract(event, make_contract, commercial_id: int):
+    """Attach a valid SQLAlchemy Contract instance to an event."""
+    contract = make_contract(commercial_id=commercial_id)
+    event.contract = contract
 
 
 class TestWriteEventService:
@@ -292,3 +305,153 @@ class TestAssignSupportService:
                 event=event,
                 support=support_user,
             )
+
+
+class TestReadEventService:
+    """Tests for event read operations — scoped by role."""
+
+    # ---------------------------
+    # get_events_for_user — happy path
+    # ---------------------------
+
+    @pytest.mark.parametrize(
+        "user_fixture,expected_count",
+        [
+            ("management_user", 2),
+            ("commercial_user", 1),
+            ("support_user", 1),
+        ],
+    )
+    def test_get_events_for_user_scoped_by_role(
+        self, request, make_event, user_fixture, expected_count
+    ):
+        """Each role gets events scoped to their access level."""
+        user = request.getfixturevalue(user_fixture)
+        events = [make_event(id=i) for i in range(expected_count)]
+
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = events
+
+        result = get_events_for_user(
+            session=session,
+            current_user=user,
+        )
+
+        assert len(result) == expected_count
+
+    # ---------------------------
+    # filter_events — happy path
+    # ---------------------------
+
+    def test_filter_by_support_unassigned(self, make_event):
+        """filter_events returns only events with no support assigned."""
+        assigned = make_event(id=1, support_id=1)
+        unassigned = make_event(id=2, support_id=None)
+
+        result = filter_events(
+            events=[assigned, unassigned],
+            support_unassigned=True,
+        )
+
+        assert len(result) == 1
+        assert result[0].support_id is None
+
+    def test_filter_by_upcoming(self, make_event):
+        """filter_events returns only future events when upcoming=True."""
+        from datetime import datetime, timedelta, timezone
+
+        past = make_event(
+            id=1,
+            start_date=datetime.now(timezone.utc) - timedelta(days=1),
+            end_date=datetime.now(timezone.utc) - timedelta(hours=1),
+        )
+        future = make_event(
+            id=2,
+            start_date=datetime.now(timezone.utc) + timedelta(days=1),
+            end_date=datetime.now(timezone.utc) + timedelta(days=2),
+        )
+
+        result = filter_events(
+            events=[past, future],
+            upcoming=True,
+        )
+
+        assert len(result) == 1
+        assert result[0].id == 2
+
+    # ---------------------------
+    # get_event_by_id — happy path
+    # ---------------------------
+
+    def test_management_retrieves_any_event(
+        self, management_user, make_event, session_with_event
+    ):
+        """Management can retrieve any event by ID."""
+        event = make_event(id=1)
+        session = session_with_event(event)
+
+        result = get_event_by_id(session, management_user, event.id)
+
+        assert result == event
+
+    def test_commercial_can_access_own_client_event(
+        self, commercial_user, make_event, make_contract, session_with_event
+    ):
+        """Commercial can access own client event."""
+        event = make_event(id=1)
+        _attach_contract(event, make_contract, commercial_user.id)
+
+        session = session_with_event(event)
+
+        result = get_event_by_id(session, commercial_user, event.id)
+
+        assert result == event
+
+    def test_support_can_access_assigned_event(
+        self, support_user, make_event, session_with_event
+    ):
+        """Support can access assigned event."""
+        event = make_event(id=1, support_id=support_user.id)
+        session = session_with_event(event)
+
+        result = get_event_by_id(session, support_user, event.id)
+
+        assert result == event
+
+    # ---------------------------
+    # get_event_by_id — sad path
+    # ---------------------------
+
+    @pytest.mark.parametrize(
+        "role_fixture, setup_func",
+        [
+            ("support_user", lambda e, u, _: setattr(e, "support_id", u.id + 1)),
+            ("commercial_user", lambda e, u, mc: _attach_contract(e, mc, u.id + 1)),
+        ],
+    )
+    def test_access_denied_cases(
+        self,
+        request,
+        make_event,
+        make_contract,
+        session_with_event,
+        role_fixture,
+        setup_func,
+    ):
+        """Test permission cases with an EventNotFoundError."""
+        user = request.getfixturevalue(role_fixture)
+        event = make_event(id=1)
+
+        setup_func(event, user, make_contract)
+        session = session_with_event(event)
+
+        with pytest.raises(EventNotFoundError):
+            get_event_by_id(session, user, event.id)
+
+    def test_event_not_found(self, management_user):
+        """Tests raising of EventNotFoundError."""
+        session = MagicMock()
+        session.get.return_value = None
+
+        with pytest.raises(EventNotFoundError):
+            get_event_by_id(session, management_user, 999)

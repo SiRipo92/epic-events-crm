@@ -504,3 +504,18 @@ def mock_session_empty():
     session.query.return_value.filter_by.return_value.first.return_value = None
     session.query.return_value.count.return_value = 0
     return session
+
+
+# ── Session helpers for read services ──────────────────────────────────────
+
+
+@pytest.fixture
+def session_with_event():
+    """Return a session mock that returns a given event via session.get()."""
+
+    def _factory(event):
+        session = MagicMock()
+        session.get.return_value = event
+        return session
+
+    return _factory
