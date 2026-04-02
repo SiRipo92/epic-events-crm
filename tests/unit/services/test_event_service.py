@@ -19,6 +19,7 @@ from models.contract import ContractStatus
 from services.event_service import (
     assign_support,
     create_event,
+    get_events_for_user,
     update_event,
 )
 
@@ -292,3 +293,32 @@ class TestAssignSupportService:
                 event=event,
                 support=support_user,
             )
+
+class TestReadEventService:
+    """Tests for event read operations — scoped by role."""
+
+    # ---------------------------
+    # get_events_for_user — happy path
+    # ---------------------------
+
+    @pytest.mark.parametrize("user_fixture,expected_count", [
+        ("management_user", 2),
+        ("commercial_user", 1),
+        ("support_user", 1),
+    ])
+    def test_get_events_for_user_scoped_by_role(
+        self, request, make_event, user_fixture, expected_count
+    ):
+        """Each role gets events scoped to their access level."""
+        user = request.getfixturevalue(user_fixture)
+        events = [make_event(id=i) for i in range(expected_count)]
+
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = events
+
+        result = get_events_for_user(
+            session=session,
+            current_user=user,
+        )
+
+        assert len(result) == expected_count

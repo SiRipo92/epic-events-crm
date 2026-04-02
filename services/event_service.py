@@ -221,3 +221,40 @@ def assign_support(
     event.support_id = support.id
     session.commit()
     return event
+
+
+@require_role("MANAGEMENT", "COMMERCIAL", "SUPPORT")
+def get_events_for_user(
+    session: Session,
+    current_user: Collaborator,
+) -> list[Event]:
+    """Return events scoped to the current user's role.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated collaborator.
+
+    Returns:
+        list[Event]: Events visible to the current user.
+
+    Raises:
+        PermissionDeniedError: If current_user has no valid role.
+    """
+    if current_user.role.name == "MANAGEMENT":
+        return list(session.scalars(select(Event)).all())
+
+    if current_user.role.name == "COMMERCIAL":
+        return list(
+            session.scalars(
+                select(Event)
+                .join(Contract, Contract.id == Event.contract_id)
+                .where(Contract.commercial_id == current_user.id)
+            ).all()
+        )
+
+    # SUPPORT
+    return list(
+        session.scalars(
+            select(Event).where(Event.support_id == current_user.id)
+        ).all()
+    )
