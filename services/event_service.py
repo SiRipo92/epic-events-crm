@@ -7,7 +7,7 @@ update, and retrieval.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -254,7 +254,37 @@ def get_events_for_user(
 
     # SUPPORT
     return list(
-        session.scalars(
-            select(Event).where(Event.support_id == current_user.id)
-        ).all()
+        session.scalars(select(Event).where(Event.support_id == current_user.id)).all()
     )
+
+
+def filter_events(
+    events: list[Event],
+    support_unassigned: bool | None = None,
+    upcoming: bool | None = None,
+) -> list[Event]:
+    """Filter a scoped list of events by optional criteria.
+
+    Filters are applied on top of an already-scoped list from
+    get_events_for_user() — never bypasses role scoping.
+
+    Args:
+        events: Pre-scoped list of events to filter.
+        support_unassigned: If True, return only events with no
+                            support assigned.
+        upcoming: If True, return only events where start_date
+                  is today or in the future.
+
+    Returns:
+        list[Event]: Filtered events matching all provided criteria.
+    """
+    results = events
+
+    if support_unassigned:
+        results = [e for e in results if e.support_id is None]
+
+    if upcoming:
+        now = datetime.now(timezone.utc)
+        results = [e for e in results if e.start_date >= now]
+
+    return results

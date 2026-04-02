@@ -19,6 +19,7 @@ from models.contract import ContractStatus
 from services.event_service import (
     assign_support,
     create_event,
+    filter_events,
     get_events_for_user,
     update_event,
 )
@@ -294,6 +295,7 @@ class TestAssignSupportService:
                 support=support_user,
             )
 
+
 class TestReadEventService:
     """Tests for event read operations — scoped by role."""
 
@@ -301,11 +303,14 @@ class TestReadEventService:
     # get_events_for_user — happy path
     # ---------------------------
 
-    @pytest.mark.parametrize("user_fixture,expected_count", [
-        ("management_user", 2),
-        ("commercial_user", 1),
-        ("support_user", 1),
-    ])
+    @pytest.mark.parametrize(
+        "user_fixture,expected_count",
+        [
+            ("management_user", 2),
+            ("commercial_user", 1),
+            ("support_user", 1),
+        ],
+    )
     def test_get_events_for_user_scoped_by_role(
         self, request, make_event, user_fixture, expected_count
     ):
@@ -322,3 +327,43 @@ class TestReadEventService:
         )
 
         assert len(result) == expected_count
+
+    # ---------------------------
+    # filter_events — happy path
+    # ---------------------------
+
+    def test_filter_by_support_unassigned(self, make_event):
+        """filter_events returns only events with no support assigned."""
+        assigned = make_event(id=1, support_id=1)
+        unassigned = make_event(id=2, support_id=None)
+
+        result = filter_events(
+            events=[assigned, unassigned],
+            support_unassigned=True,
+        )
+
+        assert len(result) == 1
+        assert result[0].support_id is None
+
+    def test_filter_by_upcoming(self, make_event):
+        """filter_events returns only future events when upcoming=True."""
+        from datetime import datetime, timedelta, timezone
+
+        past = make_event(
+            id=1,
+            start_date=datetime.now(timezone.utc) - timedelta(days=1),
+            end_date=datetime.now(timezone.utc) - timedelta(hours=1),
+        )
+        future = make_event(
+            id=2,
+            start_date=datetime.now(timezone.utc) + timedelta(days=1),
+            end_date=datetime.now(timezone.utc) + timedelta(days=2),
+        )
+
+        result = filter_events(
+            events=[past, future],
+            upcoming=True,
+        )
+
+        assert len(result) == 1
+        assert result[0].id == 2
