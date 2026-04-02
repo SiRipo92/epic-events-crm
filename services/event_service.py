@@ -9,9 +9,15 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from exceptions import ContractNotEligibleError, PermissionDeniedError
+from exceptions import (
+    ContractNotEligibleError,
+    InvalidAssignmentError,
+    PermissionDeniedError,
+    SchedulingConflictWarning,
+)
 from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
 from models.event import Event
@@ -135,11 +141,11 @@ def update_event(
         PermissionDeniedError: If current_user is not Support or
                                is not assigned to this event.
     """
-    # Step 1 — ownership check
+    # Step 1 — Ownership check
     if event.support_id != current_user.id:
         raise PermissionDeniedError("You can only update events assigned to you.")
 
-    # Step 2 — apply updates
+    # Step 2 — Apply updates
     if title is not None:
         event.title = title
 
@@ -161,5 +167,57 @@ def update_event(
     if notes is not None:
         event.notes = notes
 
+    session.commit()
+    return event
+
+
+@require_role("MANAGEMENT")
+def assign_support(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+    event: Event,
+    support: Collaborator,
+) -> Event:
+    """Assign a support collaborator to an event.
+
+    Args:
+        session: SQLAlchemy database session.
+        current_user: The authenticated Management collaborator.
+        event: The Event instance to assign support to.
+        support: The Collaborator to assign as support.
+
+    Returns:
+        Event: The updated event instance.
+
+    Raises:
+        PermissionDeniedError: If current_user is not Management.
+        InvalidAssignmentError: If support is not a Support collaborator.
+        SchedulingConflictWarning: If support has another event on the
+                                   same date.
+    """
+    # Step 1 — Validate support role
+    if support.role.name != "SUPPORT":
+        raise InvalidAssignmentError(
+            f"{support.full_name} is not a Support collaborator."
+        )
+
+    # Step 2 — Check for scheduling conflict
+    event_date = event.start_date.date()
+    existing_events = list(
+        session.scalars(
+            select(Event)
+            .where(Event.support_id == support.id)
+            .where(Event.is_cancelled.is_(False))
+        ).all()
+    )
+    conflict = any(e.start_date.date() == event_date for e in existing_events)
+    if conflict:
+        raise SchedulingConflictWarning(
+            f"{support.full_name} already has an event on "
+            f"{event_date}. Management can still force assign."
+        )
+
+    # Step 3 — Assign support
+    event.support_id = support.id
     session.commit()
     return event
