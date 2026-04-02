@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from exceptions import (
     ContractNotEligibleError,
+    EventNotFoundError,
     InvalidAssignmentError,
     PermissionDeniedError,
     SchedulingConflictWarning,
@@ -23,6 +24,14 @@ from models.contract import Contract, ContractStatus
 from models.event import Event
 from permissions.decorators import require_role
 from utils.validation import validate_event_dates, validate_location
+
+# ── Event  Helper ─────────────────────────────────────────────────────────────────
+
+
+def _event_not_found(event_id: int) -> EventNotFoundError:
+    """Return an EventNotFoundError for the given ID."""
+    return EventNotFoundError(f"No event found with ID {event_id}.")
+
 
 # ── Public Interface ─────────────────────────────────────────────────────────────────
 
@@ -288,3 +297,42 @@ def filter_events(
         results = [e for e in results if e.start_date >= now]
 
     return results
+
+
+@require_role("MANAGEMENT", "COMMERCIAL", "SUPPORT")
+def get_event_by_id(
+    session: Session,
+    current_user: Collaborator,
+    event_id: int,
+) -> Event:
+    """Return a single event if within user's scope.
+
+    Raises:
+        EventNotFoundError: If event does not exist or is not accessible.
+    """
+    # Step 1 - Fetch event
+    event: Event | None = session.get(Event, event_id)
+
+    if not event:
+        raise _event_not_found(event_id)
+
+    # Step 2 - Role-based access control
+
+    # Management → full access
+    if current_user.role.name == "MANAGEMENT":
+        return event
+
+    # COMMERCIAL → only events tied to clients of theirs
+    if current_user.role.name == "COMMERCIAL":
+        if event.contract.commercial_id != current_user.id:
+            raise _event_not_found(event_id)
+        return event
+
+    # SUPPORT → only events assigned to them
+    if current_user.role.name == "SUPPORT":
+        if event.support_id != current_user.id:
+            raise _event_not_found(event_id)
+        return event
+
+    # Shouldn't need to be reached
+    raise _event_not_found(event_id)
