@@ -27,9 +27,7 @@ class TestEventServiceIntegration:
         from datetime import datetime
 
         commercial = seeded_db["commercial"]
-        logger.info(
-            "Creating event for contract id=%s", seeded_deposit_contract.id
-        )
+        logger.info("Creating event for contract id=%s", seeded_deposit_contract.id)
 
         result = create_event(
             session=db_session,
@@ -54,9 +52,7 @@ class TestEventServiceIntegration:
             fetched.contract_id,
         )
 
-    def test_assign_support_persists_to_db(
-        self, seeded_db, db_session, seeded_event
-    ):
+    def test_assign_support_persists_to_db(self, seeded_db, db_session, seeded_event):
         """assign_support persists support_id to DB and FK join works."""
         manager = seeded_db["management"]
         support = seeded_db["support"]
@@ -80,9 +76,7 @@ class TestEventServiceIntegration:
             seeded_event.support_id,
         )
 
-    def test_get_events_scoped_by_role(
-        self, seeded_db, db_session, seeded_event
-    ):
+    def test_get_events_scoped_by_role(self, seeded_db, db_session, seeded_event):
         """get_events_for_user returns correct rows per role against real DB."""
         manager = seeded_db["management"]
         support = seeded_db["support"]
@@ -94,9 +88,7 @@ class TestEventServiceIntegration:
             event=seeded_event,
             support=support,
         )
-        logger.info(
-            "Verifying scoped event queries — event id=%s", seeded_event.id
-        )
+        logger.info("Verifying scoped event queries — event id=%s", seeded_event.id)
 
         management_results = get_events_for_user(
             session=db_session,

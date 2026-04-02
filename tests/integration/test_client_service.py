@@ -65,15 +65,11 @@ class TestClientServiceIntegration:
             seeded_client.updated_at,
         )
 
-    def test_get_clients_scoped_by_role(
-        self, seeded_db, db_session, seeded_client
-    ):
+    def test_get_clients_scoped_by_role(self, seeded_db, db_session, seeded_client):
         """get_clients_for_user returns correct rows per role against real DB."""
         commercial = seeded_db["commercial"]
         manager = seeded_db["management"]
-        logger.info(
-            "Verifying scoped client queries — client id=%s", seeded_client.id
-        )
+        logger.info("Verifying scoped client queries — client id=%s", seeded_client.id)
 
         commercial_results = get_clients_for_user(
             session=db_session,

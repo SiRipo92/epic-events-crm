@@ -23,9 +23,7 @@ logger = logging.getLogger(__name__)
 class TestContractServiceIntegration:
     """Integration tests for contract service flows."""
 
-    def test_create_contract_persists_to_db(
-        self, seeded_db, db_session, seeded_client
-    ):
+    def test_create_contract_persists_to_db(self, seeded_db, db_session, seeded_client):
         """create_contract writes row with correct defaults to real DB."""
         manager = seeded_db["management"]
         commercial = seeded_db["commercial"]
@@ -119,9 +117,7 @@ class TestContractServiceIntegration:
             event.is_cancelled,
         )
 
-    def test_get_contracts_scoped_by_role(
-        self, seeded_db, db_session, seeded_contract
-    ):
+    def test_get_contracts_scoped_by_role(self, seeded_db, db_session, seeded_contract):
         """get_contracts_for_user returns correct rows per role against real DB."""
         manager = seeded_db["management"]
         commercial = seeded_db["commercial"]
