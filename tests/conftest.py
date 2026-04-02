@@ -295,6 +295,19 @@ def future_event(make_event):
     )
 
 
+@pytest.fixture
+def default_event_kwargs():
+    """Return default kwargs for event creation tests."""
+    return {
+        "title": "Annual Gala",
+        "start_date": datetime(2025, 9, 1, 9, 0),
+        "end_date": datetime(2025, 9, 1, 17, 0),
+        "location_street": "34 rue de la Paix",
+        "location_city": "Paris",
+        "location_zip": "75001",
+    }
+
+
 # ── Named role fixtures ───────────────────────────────────────────────────────
 
 
