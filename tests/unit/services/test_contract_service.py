@@ -13,6 +13,7 @@ import pytest
 from exceptions import (
     ClientNotFoundError,
     ContractNotEditableError,
+    ContractNotFoundError,
     InvalidStatusTransitionError,
     PaymentExceedsBalanceError,
     PermissionDeniedError,
@@ -22,6 +23,9 @@ from services.contract_service import (
     cancel_contract,
     create_contract,
     edit_contract,
+    filter_contracts,
+    get_contract_by_id,
+    get_contracts_for_user,
     record_client_signature,
     record_deposit_received,
     record_payment,
@@ -522,3 +526,146 @@ class TestContractStatusTransitions:
                 current_user=commercial_user,
                 contract=contract,
             )
+
+
+class TestReadContractService:
+    """Tests for contract read operations — scoped by role."""
+
+    # ---------------------------
+    # get_contracts_for_user — happy path
+    # ---------------------------
+
+    @pytest.mark.parametrize(
+        "user_fixture,expected_count",
+        [
+            ("management_user", 2),
+            ("commercial_user", 1),
+            ("support_user", 1),
+        ],
+    )
+    def test_get_contracts_for_user_scoped_by_role(
+        self, request, make_contract, user_fixture, expected_count
+    ):
+        """Each role gets contracts scoped to their access level."""
+        user = request.getfixturevalue(user_fixture)
+        contracts = [make_contract(id=i) for i in range(expected_count)]
+
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = contracts
+
+        result = get_contracts_for_user(
+            session=session,
+            current_user=user,
+        )
+
+        assert len(result) == expected_count
+
+    # ---------------------------
+    # get_contract_by_id — role-scoped access
+    # ---------------------------
+
+    @pytest.mark.parametrize(
+        "user_fixture, contract_fixture, setup_func, should_succeed",
+        [
+            # Management access
+            ("management_user", "draft_contract", None, True),
+            ("management_user", "signed_contract", None, True),
+            # Commercial access
+            (
+                "commercial_user",
+                "draft_contract",
+                lambda c, u: setattr(c, "commercial_id", u.id),
+                True,
+            ),
+            (
+                "commercial_user",
+                "signed_contract",
+                lambda c, u: setattr(c, "commercial_id", u.id + 100),
+                False,
+            ),
+            # Support access
+            (
+                "support_user",
+                "draft_contract",
+                lambda c, u: setattr(c, "event", MagicMock(support_id=u.id)),
+                True,
+            ),
+            (
+                "support_user",
+                "signed_contract",
+                lambda c, u: setattr(c, "event", MagicMock(support_id=u.id + 1)),
+                False,
+            ),
+            # Contract does not exist
+            ("management_user", None, None, False),
+        ],
+    )
+    def test_get_contract_by_id_role_scoped(
+        self, request, user_fixture, contract_fixture, setup_func, should_succeed
+    ):
+        """Parametrized test for get_contract_by_id covering all roles."""
+        user = request.getfixturevalue(user_fixture)
+        contract = (
+            request.getfixturevalue(contract_fixture) if contract_fixture else None
+        )
+
+        # Apply setup adjustments (e.g., IDs or support assignment)
+        if contract and setup_func:
+            setup_func(contract, user)
+
+        # Mock session
+        session_mock = MagicMock()
+        if contract:
+            session_mock.get.side_effect = lambda cls, contract_id: {
+                contract.id: contract
+            }.get(contract_id)
+            contract_id = contract.id
+        else:
+            session_mock.get.return_value = None
+            contract_id = 999
+
+        if should_succeed:
+            result = get_contract_by_id(session_mock, user, contract_id)
+            assert result == contract
+        else:
+            with pytest.raises(ContractNotFoundError):
+                get_contract_by_id(session_mock, user, contract_id)
+
+
+class TestFilterContracts:
+    """Tests for filter_contracts() — applied on top of scoped list."""
+
+    # ---------------------------
+    # filter_contracts — happy path
+    # ---------------------------
+
+    def test_filter_by_status(self, make_contract):
+        """Filter by status returns only matching contracts."""
+        signed = make_contract(id=1, status=ContractStatus.SIGNED)
+        draft = make_contract(id=2, status=ContractStatus.DRAFT)
+
+        result = filter_contracts(
+            contracts=[signed, draft],
+            status=ContractStatus.SIGNED,
+        )
+
+        assert len(result) == 1
+        assert result[0].status == ContractStatus.SIGNED
+
+    def test_filter_by_client_name(self, make_contract, make_client):
+        """Filter by client name returns only matching contracts."""
+        client_a = make_client(id=1, first_name="Marie", last_name="Curie")
+        client_b = make_client(id=2, first_name="Jean", last_name="Dupont")
+
+        contract_a = make_contract(id=1)
+        contract_b = make_contract(id=2)
+        contract_a.client = client_a
+        contract_b.client = client_b
+
+        result = filter_contracts(
+            contracts=[contract_a, contract_b],
+            client_name="Curie",
+        )
+
+        assert len(result) == 1
+        assert result[0].client.last_name == "Curie"
