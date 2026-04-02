@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from exceptions import (
     ClientNotFoundError,
     ContractNotEditableError,
+    ContractNotFoundError,
     InvalidStatusTransitionError,
     PaymentExceedsBalanceError,
 )
@@ -24,6 +25,14 @@ from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
 from models.event import Event
 from permissions.decorators import require_role
+
+# ── Contract Helper ─────────────────────────────────────────────────────────────────
+
+
+def _contract_not_found(contract_id: int) -> ContractNotFoundError:
+    """Return a ContractNotFoundError for the given ID."""
+    return ContractNotFoundError(f"No contract found with ID {contract_id}.")
+
 
 # ── Public Interface ─────────────────────────────────────────────────────────────────
 
@@ -327,7 +336,7 @@ def get_contracts_for_user(
             ).all()
         )
 
-        # SUPPORT — contracts linked to their assigned events
+    # SUPPORT — contracts linked to their assigned events
     return list(
         session.scalars(
             select(Contract)
@@ -362,11 +371,50 @@ def filter_contracts(
 
     if client_name is not None:
         results = [
-            c for c in results
+            c
+            for c in results
             if c.client is not None
-            and client_name.lower() in (
-                c.client.first_name + " " + c.client.last_name
-            ).lower()
+            and client_name.lower()
+            in (c.client.first_name + " " + c.client.last_name).lower()
         ]
 
     return results
+
+
+@require_role("MANAGEMENT", "COMMERCIAL", "SUPPORT")
+def get_contract_by_id(
+    session: Session,
+    current_user: Collaborator,
+    contract_id: int,
+) -> Contract:
+    """Return a single contract if within user's scope.
+
+    Raises:
+        ContractNotFoundError: If contract does not exist or is not accessible.
+    """
+    # Step 1 — fetch contract
+    contract: Contract | None = session.get(Contract, contract_id)
+
+    if not contract:
+        raise _contract_not_found(contract_id)
+
+    # Step 2 — role-based access control
+
+    # MANAGEMENT → full access
+    if current_user.role.name == "MANAGEMENT":
+        return contract
+
+    # COMMERCIAL → only own contracts
+    if current_user.role.name == "COMMERCIAL":
+        if contract.commercial_id != current_user.id:
+            raise _contract_not_found(contract_id)
+        return contract
+
+    # SUPPORT → only contracts linked to their events
+    if current_user.role.name == "SUPPORT":
+        if contract.event is None or contract.event.support_id != current_user.id:
+            raise _contract_not_found(contract_id)
+        return contract
+
+    # Should never be reached — @require_role enforces valid roles
+    raise _contract_not_found(contract_id)
