@@ -271,6 +271,8 @@ def filter_events(
     events: list[Event],
     support_unassigned: bool | None = None,
     upcoming: bool | None = None,
+    past: bool | None = None,
+    payment_due: bool | None = None,
 ) -> list[Event]:
     """Filter a scoped list of events by optional criteria.
 
@@ -283,6 +285,9 @@ def filter_events(
                             support assigned.
         upcoming: If True, return only events where start_date
                   is today or in the future.
+        past: If True, only events where end_date < today.
+        payment_due: If True, only past events where contract status
+                     is DEPOSIT_RECEIVED (final payment not yet received).
 
     Returns:
         list[Event]: Filtered events matching all provided criteria.
@@ -295,6 +300,12 @@ def filter_events(
     if upcoming:
         now = datetime.now(timezone.utc)
         results = [e for e in results if e.start_date >= now]
+
+    if upcoming is not None and not upcoming:
+        results = [e for e in results if e.is_past]
+
+    if past:
+        results = [e for e in results if e.is_past]
 
     return results
 

@@ -6,13 +6,24 @@ for each test session. All Sprint 2 service functions are tested
 against actual DB queries.
 """
 
+from datetime import datetime
+from decimal import Decimal
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from models import Base
+from models.client import Client
 from models.collaborator import Collaborator
+from models.contract import Contract, ContractStatus
+from models.event import Event
 from models.role import Role
+from services.contract_service import (
+    record_client_signature,
+    record_deposit_received,
+    submit_for_signature,
+)
 
 
 @pytest.fixture(scope="session")
@@ -117,3 +128,72 @@ def seeded_db(db_session):
             "support": support_role,
         },
     }
+
+
+@pytest.fixture(scope="function")
+def seeded_client(seeded_db, db_session):
+    """Write a real client row linked to the seeded commercial collaborator."""
+    commercial = seeded_db["commercial"]
+
+    client = Client()
+    client.first_name = "Marie"
+    client.last_name = "Curie"
+    client.email = "marie.curie@epicevents.com"
+    client.commercial_id = commercial.id
+    db_session.add(client)
+    db_session.flush()
+
+    return client
+
+
+@pytest.fixture(scope="function")
+def seeded_contract(seeded_db, seeded_client, db_session):
+    """Write a real DRAFT contract linked to seeded client and commercial."""
+    contract = Contract()
+    contract.client_id = seeded_client.id
+    contract.commercial_id = seeded_db["commercial"].id
+    contract.total_amount = Decimal("5000.00")
+    contract.remaining_amount = Decimal("5000.00")
+    contract.status = ContractStatus.DRAFT
+    db_session.add(contract)
+    db_session.flush()
+
+    return contract
+
+
+@pytest.fixture(scope="function")
+def seeded_deposit_contract(seeded_db, seeded_contract, db_session):
+    """Advance seeded_contract to DEPOSIT_RECEIVED using real service calls."""
+    manager = seeded_db["management"]
+
+    submit_for_signature(
+        session=db_session, current_user=manager, contract=seeded_contract
+    )
+    record_client_signature(
+        session=db_session, current_user=manager, contract=seeded_contract
+    )
+    record_deposit_received(
+        session=db_session, current_user=manager, contract=seeded_contract
+    )
+
+    return seeded_contract
+
+
+@pytest.fixture(scope="function")
+def seeded_event(seeded_db, seeded_deposit_contract, db_session):
+    """Write a real event row linked to the seeded deposit contract."""
+    event = Event()
+    event.contract_id = seeded_deposit_contract.id
+    event.title = "Annual Gala"
+    event.start_date = datetime(2026, 9, 1, 9, 0)
+    event.end_date = datetime(2026, 9, 1, 17, 0)
+    event.location_street = "34 rue de la Paix"
+    event.location_city = "Paris"
+    event.location_zip = "75001"
+    event.location_country = "France"
+    event.support_id = None
+    event.is_cancelled = False
+    db_session.add(event)
+    db_session.flush()
+
+    return event

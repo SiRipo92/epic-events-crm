@@ -4,7 +4,7 @@ Tests are organised by function:
     - create_event
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import pytest
@@ -358,8 +358,6 @@ class TestReadEventService:
 
     def test_filter_by_upcoming(self, make_event):
         """filter_events returns only future events when upcoming=True."""
-        from datetime import datetime, timedelta, timezone
-
         past = make_event(
             id=1,
             start_date=datetime.now(timezone.utc) - timedelta(days=1),
@@ -378,6 +376,24 @@ class TestReadEventService:
 
         assert len(result) == 1
         assert result[0].id == 2
+
+    def test_filter_by_past(self, make_event):
+        """filter_events returns only past events when past=True."""
+        past = make_event(
+            id=1,
+            start_date=datetime.now(timezone.utc) - timedelta(days=2),
+            end_date=datetime.now(timezone.utc) - timedelta(days=1),
+        )
+        future = make_event(
+            id=2,
+            start_date=datetime.now(timezone.utc) + timedelta(days=1),
+            end_date=datetime.now(timezone.utc) + timedelta(days=2),
+        )
+
+        result = filter_events(events=[past, future], past=True)
+
+        assert len(result) == 1
+        assert result[0].id == 1
 
     # ---------------------------
     # get_event_by_id — happy path
