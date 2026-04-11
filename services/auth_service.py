@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import jwt
+import sentry_sdk
 from sqlalchemy.orm import Session
 
 from config import settings
@@ -114,6 +115,7 @@ def login(session: Session, email: str, password: str) -> Collaborator:
     session file. Returns the collaborator regardless of
     must_change_password — the caller is responsible for checking
     that flag and routing to the password change screen if needed.
+    Failed login attempts are captured in Sentry for audit purposes.
 
     Args:
         session: SQLAlchemy database session.
@@ -134,6 +136,10 @@ def login(session: Session, email: str, password: str) -> Collaborator:
 
     # Step 2 — verify password (same error as unknown email — no enumeration)
     if not collaborator or not collaborator.verify_password(password):
+        sentry_sdk.capture_message(
+            f"Failed login attempt for email: {email}",
+            level="warning",
+        )
         raise AuthenticationError("Invalid credentials. Please try again.")
 
     # Step 3 — check active status
