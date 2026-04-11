@@ -23,7 +23,7 @@ from models.event import Event
 from models.role import Role
 from permissions.decorators import require_role
 from services.auth_service import _delete_session_file
-from utils.validation import validate_email
+from utils.validation import validate_email, validate_password
 
 # ── Collaborator helpers ─────────────────────────────────────────────────────
 
@@ -141,8 +141,9 @@ def create_collaborator(
         DuplicateEmailError: If email already exists.
         ValidationError: If email format is invalid.
     """
-    # Step 1 - validate email with regex
+    # Step 1 - validate email with regex and validate password
     validate_email(email)
+    validate_password(password)
 
     # Step 2 — check email uniqueness
     existing = session.query(Collaborator).filter_by(email=email).first()

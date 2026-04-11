@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from config import settings
 from exceptions import AuthenticationError, ValidationError
 from models.collaborator import Collaborator
+from utils.validation import validate_password
 
 # ── Session file helpers ───────────────────────────────────────────────────────
 
@@ -226,6 +227,7 @@ def change_password(
     if collaborator.verify_password(new_password):
         raise ValidationError("New password must differ from your current password.")
 
+    validate_password(new_password)
     collaborator.set_password(new_password)
     session.commit()
 
