@@ -13,6 +13,7 @@ Deletion policy:
 
 from datetime import datetime
 
+import bcrypt
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -121,8 +122,6 @@ class Collaborator(Base):
         Args:
             plain_text: The raw password string to hash.
         """
-        import bcrypt
-
         self.password_hash = bcrypt.hashpw(
             plain_text.encode("utf-8"), bcrypt.gensalt(rounds=12)
         ).decode("utf-8")
@@ -136,8 +135,6 @@ class Collaborator(Base):
         Returns:
             bool: True if the password matches the stored hash.
         """
-        import bcrypt
-
         return bcrypt.checkpw(
             plain_text.encode("utf-8"), self.password_hash.encode("utf-8")
         )

@@ -31,21 +31,13 @@ def validate_password(password: str) -> None:
         ValidationError: If the password does not meet requirements.
     """
     if not password or len(password) < 8:
-        raise ValidationError(
-            "Password must be at least 8 characters long."
-        )
+        raise ValidationError("Password must be at least 8 characters long.")
     if not any(c.isupper() for c in password):
-        raise ValidationError(
-            "Password must contain at least one uppercase letter."
-        )
+        raise ValidationError("Password must contain at least one uppercase letter.")
     if not any(c.islower() for c in password):
-        raise ValidationError(
-            "Password must contain at least one lowercase letter."
-        )
+        raise ValidationError("Password must contain at least one lowercase letter.")
     if not any(c.isdigit() for c in password):
-        raise ValidationError(
-            "Password must contain at least one digit."
-        )
+        raise ValidationError("Password must contain at least one digit.")
 
 
 def validate_email(email: str) -> None:

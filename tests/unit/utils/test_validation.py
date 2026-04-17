@@ -9,7 +9,7 @@ from utils.validation import (
     validate_email,
     validate_event_dates,
     validate_location,
-    validate_password
+    validate_password,
 )
 
 
@@ -96,13 +96,16 @@ class TestValidatePassword:
         """Strong password raises no error."""
         validate_password("Secure123")
 
-    @pytest.mark.parametrize("password", [
-        "short1A",       # too short
-        "alllowercase1", # no uppercase
-        "ALLUPPERCASE1", # no lowercase
-        "NoDigitsHere",  # no digit
-        "",              # empty
-    ])
+    @pytest.mark.parametrize(
+        "password",
+        [
+            "short1A",  # too short
+            "alllowercase1",  # no uppercase
+            "ALLUPPERCASE1",  # no lowercase
+            "NoDigitsHere",  # no digit
+            "",  # empty
+        ],
+    )
     def test_weak_password_raises(self, password):
         """Weak password raises ValidationError."""
         with pytest.raises(ValidationError):
