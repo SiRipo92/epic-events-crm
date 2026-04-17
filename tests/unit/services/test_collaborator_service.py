@@ -48,12 +48,12 @@ class TestCreateCollaborator:
             last_name="Marceau",
             email="sophie.marceau@epicevents.com",
             role_id=2,
-            password="initialpassword123",
+            password="InitialPassword123",
         )
 
         assert result.must_change_password is True
         assert result.is_active is True
-        assert result.password_hash != "initialpassword123"
+        assert result.password_hash != "InitialPassword123"
         mock_session_empty.add.assert_called_once()
         mock_session_empty.commit.assert_called_once()
 
@@ -66,7 +66,7 @@ class TestCreateCollaborator:
             last_name="Marceau",
             email="sophie.marceau@epicevents.com",
             role_id=2,
-            password="initialpassword123",
+            password="InitialPassword123",
         )
 
         assert result.employee_number == "EMP-001"
@@ -90,7 +90,7 @@ class TestCreateCollaborator:
                 last_name="Marceau",
                 email="already.exists@epicevents.com",
                 role_id=2,
-                password="initialpassword123",
+                password="InitialPassword123",
             )
 
     def test_non_management_caller_raises(self, commercial_user):
@@ -105,7 +105,7 @@ class TestCreateCollaborator:
                 last_name="Marceau",
                 email="sophie.marceau@epicevents.com",
                 role_id=2,
-                password="initialpassword123",
+                password="InitialPassword123",
             )
 
     def test_invalid_email_raises(self, management_user, mock_session_empty):
@@ -118,7 +118,7 @@ class TestCreateCollaborator:
                 last_name="Marceau",
                 email="notanemail",
                 role_id=2,
-                password="initialpassword123",
+                password="InitialPassword123",
             )
 
 

@@ -93,7 +93,7 @@ def seeded_db(db_session):
     manager.role_id = 1
     manager.is_active = True
     manager.must_change_password = False
-    manager.set_password("password123")
+    manager.set_password("Password123")
 
     commercial = Collaborator()
     commercial.employee_number = "EMP-002"
@@ -103,7 +103,7 @@ def seeded_db(db_session):
     commercial.role_id = 2
     commercial.is_active = True
     commercial.must_change_password = False
-    commercial.set_password("password123")
+    commercial.set_password("Password123")
 
     support = Collaborator()
     support.employee_number = "EMP-003"
@@ -113,7 +113,7 @@ def seeded_db(db_session):
     support.role_id = 3
     support.is_active = True
     support.must_change_password = False
-    support.set_password("password123")
+    support.set_password("Password123")
 
     db_session.add_all([manager, commercial, support])
     db_session.flush()

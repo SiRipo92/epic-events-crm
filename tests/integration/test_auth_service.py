@@ -27,7 +27,7 @@ class TestLoginIntegration:
         manager = seeded_db["management"]
         logger.info("Attempting login for %s", manager.email)
 
-        result = login(db_session, manager.email, "password123")
+        result = login(db_session, manager.email, "Password123")
 
         logger.info("Login successful — collaborator id=%s", result.id)
         assert result.id == manager.id
@@ -40,7 +40,7 @@ class TestLoginIntegration:
         """JWT round trip: login writes token, get_session_user reads it back."""
         manager = seeded_db["management"]
         logger.info("Logging in as %s to establish session", manager.email)
-        login(db_session, manager.email, "password123")
+        login(db_session, manager.email, "Password123")
 
         logger.info("Reading session user from token")
         result = get_session_user(db_session)
@@ -56,7 +56,7 @@ class TestLoginIntegration:
     def test_logout_deletes_session_file(self, seeded_db, db_session, session_file):
         """Logout removes the session file written by login."""
         manager = seeded_db["management"]
-        login(db_session, manager.email, "password123")
+        login(db_session, manager.email, "Password123")
         logger.info("Session file exists before logout: %s", session_file.exists())
 
         logout()
@@ -69,10 +69,10 @@ class TestLoginIntegration:
         manager = seeded_db["management"]
         logger.info("Changing password for %s", manager.email)
 
-        change_password(db_session, manager, "password123", "newpassword456")
+        change_password(db_session, manager, "Password123", "NewPassword456")
         logger.info("Password changed — expiring instance to force DB reload")
 
         db_session.expire(manager)
-        assert manager.verify_password("newpassword456") is True
-        assert manager.verify_password("password123") is False
+        assert manager.verify_password("NewPassword456") is True
+        assert manager.verify_password("Password123") is False
         logger.info("New password verified from DB — old password rejected")

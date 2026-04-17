@@ -103,12 +103,12 @@ class TestChangePassword:
     ):
         """Valid password change updates the stored password hash."""
         c = make_collaborator(role=management_role)
-        c.set_password("oldpassword")
+        c.set_password("OldPassword123")
         session = MagicMock()
 
-        change_password(session, c, "oldpassword", "newpassword123")
+        change_password(session, c, "OldPassword123", "NewPassword123")
 
-        assert c.verify_password("newpassword123") is True
+        assert c.verify_password("NewPassword123") is True
 
     # ---------------------------
     # Sad path
