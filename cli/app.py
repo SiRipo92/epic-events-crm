@@ -1,6 +1,4 @@
-"""
-Typer application entry point for Epic Events CRM.
-"""
+"""Typer application entry point for Epic Events CRM."""
 
 from __future__ import annotations
 
@@ -11,11 +9,13 @@ app = typer.Typer(
     invoke_without_command=True,
 )
 
+
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context) -> None:
     """Launch Epic Events CRM interactive interface."""
     if ctx.invoked_subcommand is None:
         from views.menus import run_app
+
         run_app()
 
 

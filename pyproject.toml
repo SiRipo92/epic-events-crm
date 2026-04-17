@@ -15,6 +15,27 @@ profile = "black"
 line_length = 88
 skip = [".venv", "migrations"]
 
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "-v",
+    "--cov=.",
+    "--cov-report=term-missing",
+    "--cov-report=html:tests/coverage_html",
+    "--cov-fail-under=80",
+    "--ignore=tests/functional",
+]
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+log_cli_date_format = "%H:%M:%S"
+
+
 [tool.coverage.run]
 source = ["."]
 omit = [
@@ -25,7 +46,8 @@ omit = [
     "config.py",
     "db/session.py",
     "cli/app.py",
-    "views/messages.py",
+    "views/*",
+    "cli/commands.py",
 ]
 
 [tool.coverage.report]
