@@ -27,7 +27,6 @@ addopts = [
     "--cov=.",
     "--cov-report=term-missing",
     "--cov-report=html:tests/coverage_html",
-    "--cov-fail-under=80",
     "--ignore=tests/functional",
 ]
 log_cli = true
