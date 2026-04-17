@@ -15,6 +15,31 @@ from exceptions import ValidationError
 # ---- For Clients and Collaborators
 
 
+def validate_password(password: str) -> None:
+    """Validate that a password meets minimum security requirements.
+
+    Requirements:
+        - At least 8 characters
+        - At least one uppercase letter
+        - At least one lowercase letter
+        - At least one digit
+
+    Args:
+        password: The plaintext password to validate.
+
+    Raises:
+        ValidationError: If the password does not meet requirements.
+    """
+    if not password or len(password) < 8:
+        raise ValidationError("Password must be at least 8 characters long.")
+    if not any(c.isupper() for c in password):
+        raise ValidationError("Password must contain at least one uppercase letter.")
+    if not any(c.islower() for c in password):
+        raise ValidationError("Password must contain at least one lowercase letter.")
+    if not any(c.isdigit() for c in password):
+        raise ValidationError("Password must contain at least one digit.")
+
+
 def validate_email(email: str) -> None:
     """Validate that an email address has a minimally correct format.
 

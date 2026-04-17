@@ -10,3 +10,4 @@ rich==14.3.3
 sentry-sdk==2.55.0
 SQLAlchemy==2.0.48
 typer==0.24.1
+questionary==2.0.1

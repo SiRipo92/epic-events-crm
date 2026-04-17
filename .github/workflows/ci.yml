@@ -35,35 +35,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: pip install -r requirements-dev.txt
-
-      - name: Run unit tests with coverage
-        env:
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
-        run: |
-          pytest tests/unit/
-
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: tests/coverage_html/
-
-  integration:
-    runs-on: ubuntu-latest
-    needs: test
-
     services:
       postgres:
         image: postgres:17
@@ -91,9 +62,16 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
-      - name: Run integration tests
+      - name: Run tests with coverage
         env:
           DATABASE_URL: postgresql://epic_events_user:test_password@localhost/epic_events_test
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: |
-          pytest tests/integration/ -v
+          pytest tests/unit/ tests/integration/ --cov-fail-under=80
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: tests/coverage_html/

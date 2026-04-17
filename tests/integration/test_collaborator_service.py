@@ -42,7 +42,7 @@ class TestCreateCollaboratorIntegration:
             last_name="User",
             email="new.user@epicevents.com",
             role_id=2,
-            password="password123",
+            password="Password123",
         )
         logger.info(
             "Collaborator created — id=%s employee_number=%s",
@@ -54,7 +54,7 @@ class TestCreateCollaboratorIntegration:
         assert fetched is not None
         assert fetched.email == "new.user@epicevents.com"
         assert fetched.must_change_password is True
-        assert fetched.password_hash != "password123"
+        assert fetched.password_hash != "Password123"
         assert fetched.password_hash.startswith("$2b$")
         logger.info("Password stored as bcrypt hash — not plaintext")
 
@@ -74,7 +74,7 @@ class TestCreateCollaboratorIntegration:
                 last_name="Cat",
                 email=manager.email,
                 role_id=2,
-                password="password123",
+                password="Password123",
             )
         logger.info("DuplicateEmailError raised as expected")
 
