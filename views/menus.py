@@ -14,10 +14,9 @@ from rich.console import Console
 from rich.panel import Panel
 
 from cli.commands.clients import clients_menu
-
-# from cli.commands.events import events_menu
 from cli.commands.collaborators import collaborators_menu
 from cli.commands.contracts import contracts_menu
+from cli.commands.events import events_menu
 from db.session import get_session
 from exceptions import AuthenticationError, ValidationError
 from services.auth_service import (
@@ -47,7 +46,14 @@ def run_app() -> None:
         # Step 1 — check for existing session
         try:
             current_user = get_session_user(session)
-        except AuthenticationError:
+        except AuthenticationError as e:
+            error_msg = str(e)
+            if "deactivated" in error_msg.lower():
+                console.print(f"[red]✗ {error_msg} Session cleared.[/red]")
+                logout()
+                return
+            # Expired or invalid token — clear and prompt login
+            logout()
             current_user = None
 
         # Step 2 — login if no valid session
@@ -179,7 +185,7 @@ def _show_main_menu(session, current_user) -> None:
             contracts_menu(session, current_user)
             pass
         elif choice in ("Events", "My Events"):
-            # events_menu(session, current_user)
+            events_menu(session, current_user)
             pass
         elif choice == "Collaborators":
             collaborators_menu(session, current_user)

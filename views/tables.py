@@ -157,7 +157,7 @@ def render_events_table(events: list[Event]) -> Table:
         show_header=True,
         header_style="bold cyan",
     )
-    table.add_column("#", style="dim", width=4)
+    table.add_column("ID", style="dim", width=4)
     table.add_column("Title")
     table.add_column("Start")
     table.add_column("End")
@@ -166,7 +166,7 @@ def render_events_table(events: list[Event]) -> Table:
     table.add_column("Support", justify="center")
     table.add_column("Status", justify="center")
 
-    for i, e in enumerate(events, start=1):
+    for e in events:
         support = (
             f"[green]ID:{e.support_id}[/green]"
             if e.support_id
@@ -178,7 +178,7 @@ def render_events_table(events: list[Event]) -> Table:
             else "[yellow]⚠ Past[/yellow]" if e.is_past else "[green]Upcoming[/green]"
         )
         table.add_row(
-            str(i),
+            str(e.id),
             e.title,
             e.start_date.strftime("%d/%m/%Y %H:%M"),
             e.end_date.strftime("%d/%m/%Y %H:%M"),
