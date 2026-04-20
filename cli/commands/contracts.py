@@ -203,9 +203,7 @@ def _handle_list_contracts(session, current_user: Collaborator) -> None:
         ).ask()
 
     try:
-        contracts = get_contracts_for_user(
-            session=session, current_user=current_user
-        )
+        contracts = get_contracts_for_user(session=session, current_user=current_user)
 
         if filter_by == "Status":
             status_choice = questionary.select(
@@ -213,30 +211,31 @@ def _handle_list_contracts(session, current_user: Collaborator) -> None:
                 choices=[s.value.upper() for s in ContractStatus],
             ).ask()
             contracts = [
-                c for c in contracts
-                if c.status.value.upper() == status_choice
+                c for c in contracts if c.status.value.upper() == status_choice
             ]
         elif filter_by == "Client name":
             name = questionary.text("Enter client name:").ask()
             if name:
                 contracts = [
-                    c for c in contracts
-                    if c.client and name.lower()
-                    in c.client.full_name.lower()
+                    c
+                    for c in contracts
+                    if c.client and name.lower() in c.client.full_name.lower()
                 ]
         elif filter_by == "Unsigned only":
             contracts = [
-                c for c in contracts
-                if c.status in (
+                c
+                for c in contracts
+                if c.status
+                in (
                     ContractStatus.DRAFT,
                     ContractStatus.PENDING,
                 )
             ]
         elif filter_by == "Not fully paid":
             contracts = [
-                c for c in contracts
-                if c.remaining_amount > 0
-                and c.status != ContractStatus.CANCELLED
+                c
+                for c in contracts
+                if c.remaining_amount > 0 and c.status != ContractStatus.CANCELLED
             ]
 
         if not contracts:
@@ -263,9 +262,7 @@ def _handle_create_contract(session, current_user: Collaborator) -> None:
         )
     client_choices.append(Info.BACK)
 
-    client_choice = questionary.select(
-        "Select client:", choices=client_choices
-    ).ask()
+    client_choice = questionary.select("Select client:", choices=client_choices).ask()
 
     if not client_choice or client_choice == Info.BACK:
         return
