@@ -16,7 +16,7 @@ from rich.panel import Panel
 # from cli.commands.clients import clients_menu
 # from cli.commands.contracts import contracts_menu
 # from cli.commands.events import events_menu
-# from cli.commands.collaborators import collaborators_menu
+from cli.commands.collaborators import collaborators_menu
 from db.session import get_session
 from exceptions import AuthenticationError, ValidationError
 from services.auth_service import (
@@ -181,5 +181,5 @@ def _show_main_menu(session, current_user) -> None:
             # events_menu(session, current_user)
             pass
         elif choice == "Collaborators":
-            # collaborators_menu(session, current_user)
+            collaborators_menu(session, current_user)
             pass
