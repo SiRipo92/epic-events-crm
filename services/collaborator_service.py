@@ -83,9 +83,7 @@ def get_active_dossiers(session: Session, collaborator: Collaborator) -> dict:
         ContractStatus.PAID_IN_FULL,
     }
     all_contracts = (
-        session.query(Contract)
-        .filter(Contract.commercial_id == collaborator.id)
-        .all()
+        session.query(Contract).filter(Contract.commercial_id == collaborator.id).all()
     )
     contracts = [c for c in all_contracts if c.status not in terminal_statuses]
 

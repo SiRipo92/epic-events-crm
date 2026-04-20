@@ -6,8 +6,8 @@ Each test runs in its own transaction that rolls back on teardown.
 """
 
 import logging
-
 from decimal import Decimal
+
 import pytest
 
 from exceptions import (
@@ -15,16 +15,16 @@ from exceptions import (
     DuplicateEmailError,
     ReassignmentRequiredError,
 )
-from models.contract import Contract, ContractStatus
 from models.client import Client
 from models.collaborator import Collaborator
+from models.contract import Contract, ContractStatus
 from services.collaborator_service import (
     create_collaborator,
     deactivate_collaborator,
+    get_active_dossiers,
     get_collaborator_by_id,
     get_collaborators,
     update_collaborator,
-    get_active_dossiers
 )
 
 logger = logging.getLogger(__name__)
