@@ -101,3 +101,22 @@ def validate_event_dates(start_date: datetime, end_date: datetime) -> None:
     """
     if start_date >= end_date:
         raise ValidationError("Event start date must be before end date.")
+
+
+def validate_phone(phone: str) -> None:
+    """Validate French phone number format.
+
+    Accepts formats: 0612345678, +33612345678, 06 12 34 56 78
+
+    Args:
+        phone: The phone string to validate.
+
+    Raises:
+        ValidationError: If the phone format is invalid.
+    """
+    import re
+
+    pattern = r"^(\+33|0)[1-9](\d{2}){4}$"
+    cleaned = phone.replace(" ", "").replace("-", "")
+    if not cleaned or not re.match(pattern, cleaned):
+        raise ValidationError(f"'{phone}' is not a valid French phone number.")

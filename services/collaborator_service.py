@@ -23,7 +23,7 @@ from models.event import Event
 from models.role import Role
 from permissions.decorators import require_role
 from services.auth_service import _delete_session_file
-from utils.validation import validate_email, validate_password
+from utils.validation import validate_email, validate_password, validate_phone
 
 # ── Collaborator helpers ─────────────────────────────────────────────────────
 
@@ -78,16 +78,14 @@ def get_active_dossiers(session: Session, collaborator: Collaborator) -> dict:
     )
 
     # ── Contracts (exclude CANCELLED + PAID_IN_FULL) ───────────
-    contracts = (
-        session.query(Contract)
-        .filter(
-            Contract.commercial_id == collaborator.id,
-            Contract.status.notin_(
-                [ContractStatus.CANCELLED, ContractStatus.PAID_IN_FULL]
-            ),
-        )
-        .all()
+    terminal_statuses = {
+        ContractStatus.CANCELLED,
+        ContractStatus.PAID_IN_FULL,
+    }
+    all_contracts = (
+        session.query(Contract).filter(Contract.commercial_id == collaborator.id).all()
     )
+    contracts = [c for c in all_contracts if c.status not in terminal_statuses]
 
     # ── Events (only active, not cancelled) ────────────────────
     events = (
@@ -225,7 +223,9 @@ def update_collaborator(
         collaborator.email = email
 
     if phone is not None:
-        collaborator.phone = phone
+        if phone:
+            validate_phone(phone)
+        collaborator.phone = phone or None
 
     if role_id is not None:
         collaborator.role_id = role_id
@@ -267,8 +267,7 @@ def deactivate_collaborator(
     session.commit()
 
     sentry_sdk.capture_message(
-        f"Collaborator created: {collaborator.employee_number} "
-        f"role_id={collaborator.role_id}",
+        f"Collaborator deactivated: {collaborator.employee_number}",
         level="info",
     )
 

@@ -48,16 +48,16 @@ def render_collaborators_table(collaborators: list[Collaborator]) -> Table:
         show_header=True,
         header_style="bold cyan",
     )
-    table.add_column("#", style="dim", width=4)
+    table.add_column("ID", style="dim", width=4)
     table.add_column("Employee No.", style="cyan")
     table.add_column("Name")
     table.add_column("Email")
     table.add_column("Role", style="magenta")
     table.add_column("Active", justify="center")
 
-    for i, c in enumerate(collaborators, start=1):
+    for c in collaborators:
         table.add_row(
-            str(i),
+            str(c.id),
             c.employee_number,
             c.full_name,
             c.email,

@@ -67,12 +67,13 @@ def show_password_change_screen() -> tuple[str, str]:
 # ── Collaborator detail ───────────────────────────────────────────────────────
 
 
-def render_collaborator_detail(collaborator: Collaborator) -> None:
-    """Render a full detail panel for a single collaborator.
-
-    Args:
-        collaborator: The Collaborator instance to display.
-    """
+def render_collaborator_detail(
+    collaborator: Collaborator,
+    assigned_events_count: int = 0,
+    clients_count: int = 0,
+    active_contracts_count: int = 0,
+) -> None:
+    """Render a full detail panel for a single collaborator."""
     table = Table(box=box.SIMPLE, show_header=False, padding=(0, 1))
     table.add_column("Field", style="dim")
     table.add_column("Value")
@@ -92,6 +93,30 @@ def render_collaborator_detail(collaborator: Collaborator) -> None:
     table.add_row(
         "Must change password",
         "[yellow]Yes[/yellow]" if collaborator.must_change_password else "No",
+    )
+
+    if collaborator.role and collaborator.role.name == "SUPPORT":
+        table.add_row("Assigned events", str(assigned_events_count))
+
+    if collaborator.role and collaborator.role.name == "COMMERCIAL":
+        table.add_row("Clients", str(clients_count))
+        table.add_row("Active contracts", str(active_contracts_count))
+
+    table.add_row(
+        "Created",
+        (
+            collaborator.created_at.strftime("%d/%m/%Y")
+            if collaborator.created_at
+            else "—"
+        ),
+    )
+    table.add_row(
+        "Updated",
+        (
+            collaborator.updated_at.strftime("%d/%m/%Y")
+            if collaborator.updated_at
+            else "—"
+        ),
     )
 
     console.print(

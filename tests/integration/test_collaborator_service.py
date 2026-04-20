@@ -6,6 +6,7 @@ Each test runs in its own transaction that rolls back on teardown.
 """
 
 import logging
+from decimal import Decimal
 
 import pytest
 
@@ -16,9 +17,11 @@ from exceptions import (
 )
 from models.client import Client
 from models.collaborator import Collaborator
+from models.contract import Contract, ContractStatus
 from services.collaborator_service import (
     create_collaborator,
     deactivate_collaborator,
+    get_active_dossiers,
     get_collaborator_by_id,
     get_collaborators,
     update_collaborator,
@@ -126,6 +129,25 @@ class TestUpdateCollaboratorIntegration:
 
 class TestDeactivateCollaboratorIntegration:
     """Integration tests for deactivate_collaborator()."""
+
+    def test_get_active_dossiers_excludes_terminal_contracts(
+        self, seeded_db, db_session, seeded_client
+    ):
+        """get_active_dossiers excludes CANCELLED and PAID_IN_FULL contracts."""
+        commercial = seeded_db["commercial"]
+
+        paid = Contract()
+        paid.client_id = seeded_client.id
+        paid.commercial_id = commercial.id
+        paid.total_amount = Decimal("1000.00")
+        paid.remaining_amount = Decimal("0.00")
+        paid.status = ContractStatus.PAID_IN_FULL
+        db_session.add(paid)
+        db_session.flush()
+
+        dossiers = get_active_dossiers(session=db_session, collaborator=commercial)
+
+        assert not any(c.id == paid.id for c in dossiers["contracts"])
 
     def test_is_active_false_persisted(self, seeded_db, db_session, session_file):
         """is_active = False is committed to the DB."""
