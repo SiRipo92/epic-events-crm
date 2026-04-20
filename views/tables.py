@@ -72,30 +72,23 @@ def render_collaborators_table(collaborators: list[Collaborator]) -> Table:
 
 
 def render_clients_table(clients: list[Client]) -> Table:
-    """Render a Rich table of clients.
-
-    Args:
-        clients: List of Client instances to display.
-
-    Returns:
-        Table: Formatted Rich table.
-    """
+    """Render a Rich table of clients."""
     table = Table(
         title="Clients",
         box=box.ROUNDED,
         show_header=True,
         header_style="bold cyan",
     )
-    table.add_column("#", style="dim", width=4)
+    table.add_column("ID", style="dim", width=4)
     table.add_column("Name")
     table.add_column("Company")
     table.add_column("Email")
     table.add_column("Phone")
     table.add_column("Commercial ID", justify="center")
 
-    for i, c in enumerate(clients, start=1):
+    for c in clients:
         table.add_row(
-            str(i),
+            str(c.id),
             c.full_name,
             c.company_name or "—",
             c.email,
