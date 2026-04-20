@@ -7,6 +7,7 @@ Each test runs in its own transaction that rolls back on teardown.
 
 import logging
 
+from decimal import Decimal
 import pytest
 
 from exceptions import (
@@ -14,6 +15,7 @@ from exceptions import (
     DuplicateEmailError,
     ReassignmentRequiredError,
 )
+from models.contract import Contract, ContractStatus
 from models.client import Client
 from models.collaborator import Collaborator
 from services.collaborator_service import (
@@ -22,6 +24,7 @@ from services.collaborator_service import (
     get_collaborator_by_id,
     get_collaborators,
     update_collaborator,
+    get_active_dossiers
 )
 
 logger = logging.getLogger(__name__)
@@ -131,11 +134,6 @@ class TestDeactivateCollaboratorIntegration:
         self, seeded_db, db_session, seeded_client
     ):
         """get_active_dossiers excludes CANCELLED and PAID_IN_FULL contracts."""
-        from decimal import Decimal
-
-        from models.contract import Contract, ContractStatus
-        from services.collaborator_service import get_active_dossiers
-
         commercial = seeded_db["commercial"]
 
         paid = Contract()

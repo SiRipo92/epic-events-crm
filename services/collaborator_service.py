@@ -9,7 +9,6 @@ via the @require_role decorator.
 from __future__ import annotations
 
 import sentry_sdk
-from sqlalchemy import Text, cast
 from sqlalchemy.orm import Session, joinedload
 
 from exceptions import (
@@ -19,7 +18,7 @@ from exceptions import (
 )
 from models.client import Client
 from models.collaborator import Collaborator
-from models.contract import Contract
+from models.contract import Contract, ContractStatus
 from models.event import Event
 from models.role import Role
 from permissions.decorators import require_role
@@ -79,14 +78,16 @@ def get_active_dossiers(session: Session, collaborator: Collaborator) -> dict:
     )
 
     # ── Contracts (exclude CANCELLED + PAID_IN_FULL) ───────────
-    contracts = (
+    terminal_statuses = {
+        ContractStatus.CANCELLED,
+        ContractStatus.PAID_IN_FULL,
+    }
+    all_contracts = (
         session.query(Contract)
-        .filter(
-            Contract.commercial_id == collaborator.id,
-            cast(Contract.status, Text).notin_(["cancelled", "paid_in_full"]),
-        )
+        .filter(Contract.commercial_id == collaborator.id)
         .all()
     )
+    contracts = [c for c in all_contracts if c.status not in terminal_statuses]
 
     # ── Events (only active, not cancelled) ────────────────────
     events = (
