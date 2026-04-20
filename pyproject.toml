@@ -46,7 +46,7 @@ omit = [
     "db/session.py",
     "cli/app.py",
     "views/*",
-    "cli/commands.py",
+    "cli/commands/*",
 ]
 
 [tool.coverage.report]
