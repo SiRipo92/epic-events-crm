@@ -122,7 +122,11 @@ class Contract(Base):
     )
 
     status: Mapped[ContractStatus] = mapped_column(
-        SAEnum(ContractStatus, name="contractstatus"),
+        SAEnum(
+            ContractStatus,
+            name="contractstatus",
+            values_callable=lambda x: [e.value for e in x],
+        ),
         default=ContractStatus.DRAFT,
         nullable=False,
     )
