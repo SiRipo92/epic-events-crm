@@ -30,6 +30,7 @@ from services.collaborator_service import (
     get_collaborators,
     update_collaborator,
 )
+from utils.validation import validate_password
 from views.messages import Errors, Info, Prompts, Success
 from views.screens import render_collaborator_detail
 from views.tables import (
@@ -151,7 +152,7 @@ def _collaborator_context_menu(
         )
 
         if collaborator.is_active:
-            actions = ["Update", "Deactivate", Info.BACK]
+            actions = ["Update", "Reset password", "Deactivate", Info.BACK]
         else:
             actions = [Info.BACK]
 
@@ -164,6 +165,8 @@ def _collaborator_context_menu(
 
         if choice == "Update":
             _handle_update_collaborator(session, current_user, collaborator)
+        if choice == "Reset password":
+            _handle_reset_password(session, current_user, collaborator)
         elif choice == "Deactivate":
             deactivated = _handle_deactivate_collaborator(
                 session, current_user, collaborator
@@ -307,3 +310,29 @@ def _handle_deactivate_collaborator(
         )
     except PermissionDeniedError:
         console.print(Errors.PERMISSION_DENIED)
+
+
+def _handle_reset_password(
+    session, current_user: Collaborator, collaborator: Collaborator
+) -> None:
+    """Prompt for new password and reset collaborator credentials."""
+    new_password = questionary.password("New password:").ask()
+    confirm = questionary.password("Confirm password:").ask()
+
+    if new_password != confirm:
+        console.print(Errors.PASSWORDS_DONT_MATCH)
+        return
+
+    try:
+        validate_password(new_password)
+    except ValidationError:
+        console.print(Errors.WEAK_PASSWORD)
+        return
+
+    collaborator.set_password(new_password)
+    collaborator.must_change_password = True
+    session.commit()
+    console.print(
+        f"[green]✓ Password reset for {collaborator.full_name}. "
+        f"They will be prompted to change it on next login.[/green]"
+    )
