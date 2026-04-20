@@ -117,19 +117,17 @@ def render_contracts_table(contracts: list[Contract]) -> Table:
         show_header=True,
         header_style="bold cyan",
     )
-    table.add_column("#", style="dim", width=4)
-    table.add_column("ID", justify="center")
+    table.add_column("ID", style="dim", width=4)
     table.add_column("Client")
     table.add_column("Total", justify="right")
     table.add_column("Remaining", justify="right")
     table.add_column("Status")
     table.add_column("Deposit", justify="center")
 
-    for i, c in enumerate(contracts, start=1):
+    for c in contracts:
         status_style = CONTRACT_STATUS_STYLE.get(c.status, "")
         client_name = c.client.full_name if c.client else "—"
         table.add_row(
-            str(i),
             str(c.id),
             client_name,
             f"{c.total_amount:.2f} €",
