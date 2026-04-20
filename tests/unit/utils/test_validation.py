@@ -10,6 +10,7 @@ from utils.validation import (
     validate_event_dates,
     validate_location,
     validate_password,
+    validate_phone,
 )
 
 
@@ -110,3 +111,33 @@ class TestValidatePassword:
         """Weak password raises ValidationError."""
         with pytest.raises(ValidationError):
             validate_password(password)
+
+
+class TestValidatePhone:
+    """Tests for validate_phone()."""
+
+    @pytest.mark.parametrize(
+        "phone",
+        [
+            "0612345678",
+            "+33612345678",
+            "06 12 34 56 78",
+        ],
+    )
+    def test_valid_phone_passes(self, phone):
+        """Valid French phone number raises no error."""
+        validate_phone(phone)
+
+    @pytest.mark.parametrize(
+        "phone",
+        [
+            "123",
+            "abcdefghij",
+            "",
+            "0012345678",
+        ],
+    )
+    def test_invalid_phone_raises(self, phone):
+        """Invalid phone raises ValidationError."""
+        with pytest.raises(ValidationError):
+            validate_phone(phone)
