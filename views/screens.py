@@ -21,6 +21,7 @@ from models.contract import Contract
 from models.event import Event
 from utils.validation import validate_password
 from views.messages import Errors, Prompts
+from views.tables import CONTRACT_STATUS_STYLE
 
 console = Console()
 
@@ -131,21 +132,43 @@ def render_collaborator_detail(
 # ── Client detail ─────────────────────────────────────────────────────────────
 
 
-def render_client_detail(client: Client) -> None:
-    """Render a full detail panel for a single client.
-
-    Args:
-        client: The Client instance to display.
-    """
+def render_client_detail(
+    client: Client,
+    contracts_summary: list | None = None,
+    support_ids: set | None = None,
+) -> None:
+    """Render a full detail panel for a single client."""
     table = Table(box=box.SIMPLE, show_header=False, padding=(0, 1))
     table.add_column("Field", style="dim")
     table.add_column("Value")
 
+    table.add_row("ID", str(client.id))
     table.add_row("Name", client.full_name)
     table.add_row("Email", client.email)
     table.add_row("Phone", client.phone or "—")
     table.add_row("Company", client.company_name or "—")
     table.add_row("Commercial ID", str(client.commercial_id))
+    if support_ids:
+        table.add_row(
+            "Support assigned",
+            ", ".join(f"ID:{sid}" for sid in support_ids),
+        )
+    elif support_ids is not None:
+        table.add_row("Support assigned", "[dim]Unassigned[/dim]")
+
+    if contracts_summary is not None:
+        table.add_row(
+            "Contracts",
+            str(len(contracts_summary)) if contracts_summary else "None",
+        )
+        for contract in contracts_summary:
+            style = CONTRACT_STATUS_STYLE.get(contract.status, "")
+            table.add_row(
+                f"  #{contract.id}",
+                f"[{style}]{contract.status.value.upper()}[/{style}]"
+                f" — {contract.remaining_amount:.2f} €",
+            )
+
     table.add_row(
         "Created",
         client.created_at.strftime("%d/%m/%Y") if client.created_at else "—",

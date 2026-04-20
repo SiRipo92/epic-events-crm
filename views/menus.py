@@ -13,7 +13,8 @@ import questionary
 from rich.console import Console
 from rich.panel import Panel
 
-# from cli.commands.clients import clients_menu
+from cli.commands.clients import clients_menu
+
 # from cli.commands.contracts import contracts_menu
 # from cli.commands.events import events_menu
 from cli.commands.collaborators import collaborators_menu
@@ -172,7 +173,7 @@ def _show_main_menu(session, current_user) -> None:
             return
 
         if choice in ("Clients", "My Clients"):
-            # clients_menu(session, current_user)
+            clients_menu(session, current_user)
             pass
         elif choice in ("Contracts", "My Contracts"):
             # contracts_menu(session, current_user)
