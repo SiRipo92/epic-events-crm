@@ -12,14 +12,6 @@ import questionary
 from rich.console import Console
 from sqlalchemy import select
 
-from exceptions import (
-    ContractNotEligibleError,
-    EventNotFoundError,
-    InvalidAssignmentError,
-    PermissionDeniedError,
-    SchedulingConflictWarning,
-    ValidationError,
-)
 from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
 from models.event import Event
@@ -27,9 +19,18 @@ from services.event_service import (
     assign_support,
     create_event,
     filter_events,
+    get_all_events,
     get_event_by_id,
     get_events_for_user,
     update_event,
+)
+from utils.exceptions import (
+    ContractNotEligibleError,
+    EventNotFoundError,
+    InvalidAssignmentError,
+    PermissionDeniedError,
+    SchedulingConflictWarning,
+    ValidationError,
 )
 from views.messages import Errors, Info, Prompts, Success, Warnings
 from views.screens import render_event_detail
@@ -62,6 +63,7 @@ def events_menu(session, current_user: Collaborator) -> None:
     else:  # SUPPORT
         options = [
             "List Events",
+            "My Events",
             "Select Event",
             Info.BACK,
         ]
@@ -77,6 +79,8 @@ def events_menu(session, current_user: Collaborator) -> None:
 
         if choice == "List Events":
             _handle_list_events(session, current_user)
+        elif choice == "My Events":
+            _handle_my_events(session, current_user)
         elif choice == "Events Needing Support":
             _handle_events_needing_support(session, current_user)
         elif choice == "Create Event":
@@ -95,7 +99,7 @@ def _select_event_from_table(
 ) -> Event | None:
     """Show table and prompt for ID. Returns event or None."""
     if events is None:
-        events = get_events_for_user(session=session, current_user=current_user)
+        events = get_all_events(session=session, current_user=current_user)
     if not events:
         console.print(Info.NO_EVENTS)
         return None
@@ -166,11 +170,13 @@ def _handle_list_events(session, current_user: Collaborator) -> None:
     filter_choices = ["None", "Upcoming", "Past"]
     if role == "MANAGEMENT":
         filter_choices.append("Unassigned Support")
+    if role == "SUPPORT":
+        filter_choices.append("My Events")
 
     filter_by = questionary.select("Filter by:", choices=filter_choices).ask()
 
     try:
-        events = get_events_for_user(session=session, current_user=current_user)
+        events = get_all_events(session=session, current_user=current_user)
 
         if filter_by == "Upcoming":
             events = filter_events(events, upcoming=True)
@@ -178,6 +184,8 @@ def _handle_list_events(session, current_user: Collaborator) -> None:
             events = filter_events(events, past=True)
         elif filter_by == "Unassigned Support":
             events = filter_events(events, support_unassigned=True)
+        elif filter_by == "My Events":
+            events = [e for e in events if e.support_id == current_user.id]
 
         if not events:
             console.print(Info.NO_EVENTS)
@@ -315,6 +323,18 @@ def _handle_create_event(session, current_user: Collaborator) -> None:
         console.print(Success.EVENT_CREATED.format(title=event.title))
     except (ContractNotEligibleError, PermissionDeniedError, ValidationError) as e:
         console.print(f"[red]✗ {e}[/red]")
+
+
+def _handle_my_events(session, current_user: Collaborator) -> None:
+    """Show only events assigned to the current support member."""
+    events = get_all_events(session=session, current_user=current_user)
+    my_events = [e for e in events if e.support_id == current_user.id]
+
+    if not my_events:
+        console.print("[dim]No events are currently assigned to you.[/dim]")
+        return
+
+    console.print(render_events_table(my_events))
 
 
 def _handle_assign_support(session, current_user: Collaborator, event: Event) -> None:
