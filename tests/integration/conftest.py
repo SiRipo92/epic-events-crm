@@ -33,11 +33,10 @@ def engine():
 
     from config import settings
 
-    test_url = settings.database_url.replace("/epic_events_crm", "/epic_events_test")
+    test_url = settings.test_database_url
     engine = create_engine(test_url)
 
     with engine.connect() as conn:
-        # Drop existing enum and tables cleanly before each test session
         conn.execute(text("DROP TYPE IF EXISTS contractstatus CASCADE"))
         conn.commit()
 
