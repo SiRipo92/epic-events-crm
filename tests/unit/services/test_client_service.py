@@ -9,17 +9,18 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from exceptions import (
+from services.client_service import (
+    create_client,
+    get_all_clients,
+    get_client_by_id,
+    get_clients_for_user,
+    update_client,
+)
+from utils.exceptions import (
     ClientNotFoundError,
     DuplicateEmailError,
     PermissionDeniedError,
     ValidationError,
-)
-from services.client_service import (
-    create_client,
-    get_client_by_id,
-    get_clients_for_user,
-    update_client,
 )
 
 
@@ -233,122 +234,47 @@ class TestReadClientService:
     """Tests for client read operations — scoped by role."""
 
     # ---------------------------
-    # get_clients_for_user — happy path
-    # ---------------------------
-
-    def test_management_sees_all_clients(self, management_user):
-        """Management user gets all clients."""
-        session = MagicMock()
-        session.scalars.return_value.all.return_value = [MagicMock(), MagicMock()]
-
-        result = get_clients_for_user(
-            session=session,
-            current_user=management_user,
-        )
-
-        assert len(result) == 2
-        session.scalars.assert_called_once()
-
-    def test_commercial_sees_only_own_clients(self, commercial_user, make_client):
-        """Commercial user gets only their own clients."""
-        own_client = make_client(id=1, commercial_id=commercial_user.id)
-
-        session = MagicMock()
-        session.scalars.return_value.all.return_value = [own_client]
-
-        result = get_clients_for_user(
-            session=session,
-            current_user=commercial_user,
-        )
-
-        assert len(result) == 1
-        assert result[0].commercial_id == commercial_user.id
-
-    def test_support_sees_only_clients_linked_to_assigned_events(
-        self, support_user, make_client
-    ):
-        """Support user gets only clients linked to their assigned events."""
-        linked_client = make_client(id=1)
-
-        session = MagicMock()
-        session.scalars.return_value.all.return_value = [linked_client]
-
-        result = get_clients_for_user(
-            session=session,
-            current_user=support_user,
-        )
-
-        assert len(result) == 1
-
-    # ---------------------------
     # get_client_by_id — happy path
     # ---------------------------
 
-    @pytest.mark.parametrize(
-        "role_fixture,client_kwargs,scalars_clients",
-        [
-            ("management_user", {"id": 1}, None),
-            ("commercial_user", {"id": 1}, None),  # commercial_id set in test
-            ("support_user", {"id": 1}, "linked"),
-        ],
-    )
-    def test_get_client_by_id_returns_client(
-        self, request, make_client, role_fixture, client_kwargs, scalars_clients
-    ):
-        """Each role can retrieve a client within their scope."""
-        user = request.getfixturevalue(role_fixture)
+    def test_get_client_by_id_returns_client_for_any_role(self, request, make_client):
+        """Any role can retrieve any client by ID."""
+        for fixture in ("management_user", "commercial_user", "support_user"):
+            user = request.getfixturevalue(fixture)
+            client = make_client(id=1, commercial_id=999)  # deliberately not theirs
 
-        if role_fixture == "commercial_user":
-            client_kwargs["commercial_id"] = user.id
+            session = MagicMock()
+            session.get.return_value = client
 
-        test_client = make_client(**client_kwargs)
+            result = get_client_by_id(session=session, current_user=user, client_id=1)
+            assert result == client
+
+    def test_get_client_by_id_not_found_raises(self, management_user):
+        """Returns ClientNotFoundError when client does not exist."""
         session = MagicMock()
-        session.get.return_value = test_client
-
-        if scalars_clients == "linked":
-            session.scalars.return_value.all.return_value = [test_client]
-
-        result = get_client_by_id(
-            session=session,
-            current_user=user,
-            client_id=1,
-        )
-
-        assert result == test_client
-
-    # ---------------------------
-    # get_client_by_id - sad path
-    # ---------------------------
-
-    def test_commercial_retrieves_other_client_raises(
-        self, commercial_user, make_client
-    ):
-        """Commercial retrieving anothers' client raises ClientNotFoundError."""
-        test_client = make_client(id=1, commercial_id=999)
-
-        session = MagicMock()
-        session.get.return_value = test_client
+        session.get.return_value = None
 
         with pytest.raises(ClientNotFoundError):
             get_client_by_id(
-                session=session,
-                current_user=commercial_user,
-                client_id=1,
+                session=session, current_user=management_user, client_id=999
             )
 
-    def test_support_retrieves_unlinked_client_raises(self, support_user, make_client):
-        """Support retrieving a client not linked to them raises ClientNotFoundError."""
-        test_client = make_client(id=1)
-        other_client = make_client(id=2)
+    def test_returns_all_clients_for_any_role(self, request, make_client):
+        """All roles receive all clients."""
+        for fixture in ("management_user", "commercial_user", "support_user"):
+            user = request.getfixturevalue(fixture)
+            clients = [make_client(id=i, commercial_id=999) for i in range(3)]
 
+            session = MagicMock()
+            session.scalars.return_value.all.return_value = clients
+
+            result = get_all_clients(session=session, current_user=user)
+            assert len(result) == 3
+
+    def test_returns_empty_list_when_no_clients(self, management_user):
+        """Returns empty list when no clients exist."""
         session = MagicMock()
-        session.get.return_value = test_client
-        # Support only has access to other_client, not client id=1
-        session.scalars.return_value.all.return_value = [other_client]
+        session.scalars.return_value.all.return_value = []
 
-        with pytest.raises(ClientNotFoundError):
-            get_client_by_id(
-                session=session,
-                current_user=support_user,
-                client_id=1,
-            )
+        result = get_all_clients(session=session, current_user=management_user)
+        assert result == []

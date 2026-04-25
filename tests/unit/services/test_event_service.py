@@ -9,21 +9,22 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from exceptions import (
-    ContractNotEligibleError,
-    EventNotFoundError,
-    InvalidAssignmentError,
-    PermissionDeniedError,
-    SchedulingConflictWarning,
-)
 from models.contract import ContractStatus
 from services.event_service import (
     assign_support,
     create_event,
     filter_events,
+    get_all_events,
     get_event_by_id,
     get_events_for_user,
     update_event,
+)
+from utils.exceptions import (
+    ContractNotEligibleError,
+    EventNotFoundError,
+    InvalidAssignmentError,
+    PermissionDeniedError,
+    SchedulingConflictWarning,
 )
 
 
@@ -410,64 +411,44 @@ class TestReadEventService:
 
         assert result == event
 
-    def test_commercial_can_access_own_client_event(
-        self, commercial_user, make_event, make_contract, session_with_event
+    def test_get_event_by_id_returns_event_for_any_role(
+        self, request, make_event, session_with_event
     ):
-        """Commercial can access own client event."""
-        event = make_event(id=1)
-        _attach_contract(event, make_contract, commercial_user.id)
+        """Any role can retrieve any event by ID — no ownership check."""
+        for fixture in ("management_user", "commercial_user", "support_user"):
+            user = request.getfixturevalue(fixture)
+            # Deliberately not theirs: support_id and commercial_id don't match
+            event = make_event(id=1, support_id=999)
 
-        session = session_with_event(event)
+            session = session_with_event(event)
 
-        result = get_event_by_id(session, commercial_user, event.id)
+            result = get_event_by_id(session, user, event.id)
+            assert result == event
 
-        assert result == event
-
-    def test_support_can_access_assigned_event(
-        self, support_user, make_event, session_with_event
-    ):
-        """Support can access assigned event."""
-        event = make_event(id=1, support_id=support_user.id)
-        session = session_with_event(event)
-
-        result = get_event_by_id(session, support_user, event.id)
-
-        assert result == event
-
-    # ---------------------------
-    # get_event_by_id — sad path
-    # ---------------------------
-
-    @pytest.mark.parametrize(
-        "role_fixture, setup_func",
-        [
-            ("support_user", lambda e, u, _: setattr(e, "support_id", u.id + 1)),
-            ("commercial_user", lambda e, u, mc: _attach_contract(e, mc, u.id + 1)),
-        ],
-    )
-    def test_access_denied_cases(
-        self,
-        request,
-        make_event,
-        make_contract,
-        session_with_event,
-        role_fixture,
-        setup_func,
-    ):
-        """Test permission cases with an EventNotFoundError."""
-        user = request.getfixturevalue(role_fixture)
-        event = make_event(id=1)
-
-        setup_func(event, user, make_contract)
-        session = session_with_event(event)
-
-        with pytest.raises(EventNotFoundError):
-            get_event_by_id(session, user, event.id)
-
-    def test_event_not_found(self, management_user):
-        """Tests raising of EventNotFoundError."""
+    def test_get_event_by_id_not_found_raises(self, management_user):
+        """EventNotFoundError when event does not exist."""
         session = MagicMock()
         session.get.return_value = None
 
         with pytest.raises(EventNotFoundError):
             get_event_by_id(session, management_user, 999)
+
+    def test_returns_all_events_for_any_role(self, request, make_event):
+        """All roles receive all events."""
+        for fixture in ("management_user", "commercial_user", "support_user"):
+            user = request.getfixturevalue(fixture)
+            events = [make_event(id=i) for i in range(3)]
+
+            session = MagicMock()
+            session.scalars.return_value.all.return_value = events
+
+            result = get_all_events(session=session, current_user=user)
+            assert len(result) == 3
+
+    def test_returns_empty_list_when_no_events(self, management_user):
+        """Returns empty list when no events exist."""
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = []
+
+        result = get_all_events(session=session, current_user=management_user)
+        assert result == []
