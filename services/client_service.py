@@ -5,9 +5,8 @@ Handles all client management operations — creation, update,
 deactivation, and retrieval.
 
 For creation/update, this requires a 'Commercial' role.
-All others have Read access and typically scoped to their role/permissions.
-Ex. Management can view all clients, but Support can only view clients assigned
-to them.
+All roles have full read access via get_all_clients / get_client_by_id.
+get_clients_for_user remains available for scoped "my records" filters.
 """
 
 from __future__ import annotations
@@ -15,16 +14,16 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from exceptions import (
-    ClientNotFoundError,
-    DuplicateEmailError,
-    PermissionDeniedError,
-)
 from models.client import Client
 from models.collaborator import Collaborator
 from models.contract import Contract
 from models.event import Event
 from permissions.decorators import require_role
+from utils.exceptions import (
+    ClientNotFoundError,
+    DuplicateEmailError,
+    PermissionDeniedError,
+)
 from utils.validation import validate_email
 
 # ── Client helpers ──────────────────────────────────────────────────────────────────
@@ -191,45 +190,32 @@ def get_clients_for_user(
 @require_role("MANAGEMENT", "COMMERCIAL", "SUPPORT")
 def get_client_by_id(
     session: Session,
-    current_user: Collaborator,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
     client_id: int,
 ) -> Client:
-    """Return a single client by ID scoped to the current user's role.
+    """Return a single client by ID. All roles have read access.
+
+    Raises:
+        ClientNotFoundError: If client does not exist.
+    """
+    client: Client | None = session.get(Client, client_id)
+    if not client:
+        raise _client_not_found(client_id)
+    return client
+
+
+@require_role("MANAGEMENT", "COMMERCIAL", "SUPPORT")
+def get_all_clients(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+) -> list[Client]:
+    """Return all clients. All roles have read access to all clients.
 
     Args:
         session: SQLAlchemy database session.
-        current_user: The authenticated collaborator.
-        client_id: The primary key of the client to retrieve.
+        current_user: Any authenticated collaborator.
 
     Returns:
-        Client: The matching client instance.
-
-    Raises:
-        PermissionDeniedError: If current_user has no valid role.
-        ClientNotFoundError: If client does not exist or is outside
-                             the user's scope.
+        list[Client]: All clients in the system.
     """
-    client: Client | None = session.get(Client, client_id)
-
-    if not client:
-        raise _client_not_found(client_id)
-
-    if current_user.role.name == "MANAGEMENT":
-        return client
-
-    if current_user.role.name == "COMMERCIAL":
-        if client.commercial_id != current_user.id:
-            raise _client_not_found(client_id)
-        return client
-
-    # SUPPORT — check client is linked to one of their assigned events
-    linked_client_ids = {
-        c.id
-        for c in get_clients_for_user(
-            session=session,
-            current_user=current_user,
-        )
-    }
-    if client_id not in linked_client_ids:
-        raise _client_not_found(client_id)
-    return client
+    return list(session.scalars(select(Client)).all())
