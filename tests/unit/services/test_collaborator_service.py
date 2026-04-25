@@ -12,13 +12,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from exceptions import (
-    CollaboratorNotFoundError,
-    DuplicateEmailError,
-    PermissionDeniedError,
-    ReassignmentRequiredError,
-    ValidationError,
-)
 from models.contract import ContractStatus
 from services.collaborator_service import (
     create_collaborator,
@@ -27,6 +20,13 @@ from services.collaborator_service import (
     get_collaborator_by_id,
     get_collaborators,
     update_collaborator,
+)
+from utils.exceptions import (
+    CollaboratorNotFoundError,
+    DuplicateEmailError,
+    PermissionDeniedError,
+    ReassignmentRequiredError,
+    ValidationError,
 )
 
 
