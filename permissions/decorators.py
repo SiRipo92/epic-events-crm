@@ -2,7 +2,7 @@
 
 from functools import wraps
 
-from exceptions import PermissionDeniedError
+from utils.exceptions import PermissionDeniedError
 
 
 def require_role(*allowed_roles: str):

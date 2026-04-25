@@ -64,14 +64,38 @@ jobs:
 
       - name: Run tests with coverage
         env:
-          DATABASE_URL: postgresql://epic_events_user:test_password@localhost/epic_events_test
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+            DATABASE_URL: postgresql://epic_events_user:test_password@localhost/epic_events_test
+            TEST_DATABASE_URL: postgresql://epic_events_user:test_password@localhost/epic_events_test
+            SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: |
-          pytest tests/unit/ tests/integration/ --cov-fail-under=80
+            pytest tests/unit/ tests/integration/ \
+              --cov=. \
+              --cov-report=xml:coverage.xml \
+              --cov-report=term-missing \
+              --cov-fail-under=80
 
-      - name: Upload coverage report
+      # Generates badges/coverage.svg from coverage.xml and commits it back
+      # to the branch — the README references this file directly, so the badge
+      # updates automatically on every push without any external paid service.
+      - name: Generate coverage badge
+        if: github.event_name == 'push'
+        run: |
+          pip install genbadge[coverage]
+          mkdir -p docs/badges
+          genbadge coverage -i coverage.xml -o docs/badges/coverage.svg
+
+      - name: Commit updated coverage badge
+        if: github.event_name == 'push'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "ci: update coverage badge [skip ci]"
+          file_pattern: docs/badges/coverage.svg
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "github-actions[bot]@users.noreply.github.com"
+
+      - name: Upload coverage report as artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: tests/coverage_html/
+          path: coverage.xml

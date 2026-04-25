@@ -20,7 +20,6 @@ import jwt
 import pytest
 
 from config import settings
-from exceptions import AuthenticationError, ValidationError
 from services.auth_service import (
     _decode_token,
     _generate_token,
@@ -32,6 +31,7 @@ from services.auth_service import (
     login,
     logout,
 )
+from utils.exceptions import AuthenticationError, ValidationError
 
 
 class TestGenerateToken:

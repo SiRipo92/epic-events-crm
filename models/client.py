@@ -79,6 +79,11 @@ class Client(Base):
         passive_deletes=True,
     )
 
+    commercial: Mapped["Collaborator"] = relationship(  # noqa: F821
+        "Collaborator",
+        foreign_keys=[commercial_id],
+    )
+
     # ── Computed properties ────────────────────────────────────────────────────
 
     @property

@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 
-from exceptions import ValidationError
+from utils.exceptions import ValidationError
 
 # ---- For Clients and Collaborators
 

@@ -11,20 +11,19 @@ from __future__ import annotations
 import questionary
 from rich.console import Console
 
-from exceptions import (
+from models.collaborator import Collaborator
+from models.contract import Contract
+from services.client_service import (
+    create_client,
+    get_all_clients,
+    get_client_by_id,
+    update_client,
+)
+from utils.exceptions import (
     ClientNotFoundError,
     DuplicateEmailError,
     PermissionDeniedError,
     ValidationError,
-)
-from models.collaborator import Collaborator
-from models.contract import Contract
-from models.event import Event
-from services.client_service import (
-    create_client,
-    get_client_by_id,
-    get_clients_for_user,
-    update_client,
 )
 from views.messages import Errors, Info, Success
 from views.screens import render_client_detail
@@ -76,7 +75,7 @@ def clients_menu(session, current_user: Collaborator) -> None:
 
 def _select_client_from_table(session, current_user: Collaborator) -> object | None:
     """Show table and prompt for ID. Returns client or None."""
-    clients = get_clients_for_user(session=session, current_user=current_user)
+    clients = get_all_clients(session=session, current_user=current_user)
     if not clients:
         console.print(Info.NO_CLIENTS)
         return None
@@ -110,26 +109,12 @@ def _client_context_menu(session, current_user, client) -> None:
     """Context menu for a selected client."""
     contracts = session.query(Contract).filter(Contract.client_id == client.id).all()
 
-    support_ids = set()
-    for contract in contracts:
-        event = (
-            session.query(Event)
-            .filter(
-                Event.contract_id == contract.id,
-                Event.is_cancelled.is_(False),
-            )
-            .first()
-        )
-        if event and event.support_id:
-            support_ids.add(event.support_id)
-
     role = current_user.role.name
 
     while True:
         render_client_detail(
             client,
             contracts_summary=contracts,
-            support_ids=support_ids,
         )
 
         if role == "COMMERCIAL" and client.commercial_id == current_user.id:
@@ -168,7 +153,7 @@ def _handle_list_clients(session, current_user: Collaborator) -> None:
         company_filter = questionary.text("Enter company name:").ask()
 
     try:
-        clients = get_clients_for_user(session=session, current_user=current_user)
+        clients = get_all_clients(session=session, current_user=current_user)
 
         if name_filter:
             name_filter = name_filter.lower()

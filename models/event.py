@@ -67,8 +67,10 @@ class Event(Base):
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # To update later
-    support_id: Mapped[int | None] = mapped_column(nullable=True)
+    support_id: Mapped[int | None] = mapped_column(
+        ForeignKey("collaborators.id"),
+        nullable=True,
+    )
 
     is_cancelled: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=false(), nullable=False
@@ -85,7 +87,13 @@ class Event(Base):
         onupdate=func.now(),
     )
 
+    # ── Relationships ──────────────────────────────────────────────────────────
+
     contract: Mapped["Contract"] = relationship(back_populates="event")  # noqa: F821
+    support: Mapped["Collaborator | None"] = relationship(  # noqa: F821
+        "Collaborator",
+        foreign_keys=[support_id],
+    )
 
     @property
     def location(self) -> str | None:

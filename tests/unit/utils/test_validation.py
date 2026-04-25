@@ -4,7 +4,7 @@ from datetime import datetime
 
 import pytest
 
-from exceptions import ValidationError
+from utils.exceptions import ValidationError
 from utils.validation import (
     validate_email,
     validate_event_dates,

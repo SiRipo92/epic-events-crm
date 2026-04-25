@@ -13,12 +13,6 @@ from decimal import Decimal, InvalidOperation
 import questionary
 from rich.console import Console
 
-from exceptions import (
-    ClientNotFoundError,
-    ContractNotFoundError,
-    PermissionDeniedError,
-    ValidationError,
-)
 from models.client import Client
 from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
@@ -27,12 +21,18 @@ from services.contract_service import (
     cancel_contract,
     create_contract,
     edit_contract,
+    get_all_contracts,
     get_contract_by_id,
-    get_contracts_for_user,
     record_client_signature,
     record_deposit_received,
     record_payment,
     submit_for_signature,
+)
+from utils.exceptions import (
+    ClientNotFoundError,
+    ContractNotFoundError,
+    PermissionDeniedError,
+    ValidationError,
 )
 from views.messages import Errors, Info, Prompts, Success, Warnings
 from views.screens import render_contract_detail
@@ -84,7 +84,7 @@ def contracts_menu(session, current_user: Collaborator) -> None:
 
 def _select_contract_from_table(session, current_user: Collaborator) -> Contract | None:
     """Show table and prompt for ID. Returns contract or None."""
-    contracts = get_contracts_for_user(session=session, current_user=current_user)
+    contracts = get_all_contracts(session=session, current_user=current_user)
     if not contracts:
         console.print(Info.NO_CONTRACTS)
         return None
@@ -203,7 +203,7 @@ def _handle_list_contracts(session, current_user: Collaborator) -> None:
         ).ask()
 
     try:
-        contracts = get_contracts_for_user(session=session, current_user=current_user)
+        contracts = get_all_contracts(session=session, current_user=current_user)
 
         if filter_by == "Status":
             status_choice = questionary.select(

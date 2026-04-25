@@ -84,16 +84,17 @@ def render_clients_table(clients: list[Client]) -> Table:
     table.add_column("Company")
     table.add_column("Email")
     table.add_column("Phone")
-    table.add_column("Commercial ID", justify="center")
+    table.add_column("Commercial", justify="center")
 
     for c in clients:
+        commercial_name = c.commercial.full_name if c.commercial else "—"
         table.add_row(
             str(c.id),
             c.full_name,
             c.company_name or "—",
             c.email,
             c.phone or "—",
-            str(c.commercial_id),
+            commercial_name,
         )
 
     return table
@@ -167,11 +168,7 @@ def render_events_table(events: list[Event]) -> Table:
     table.add_column("Status", justify="center")
 
     for e in events:
-        support = (
-            f"[green]ID:{e.support_id}[/green]"
-            if e.support_id
-            else "[dim]Unassigned[/dim]"
-        )
+        support = e.support.full_name if e.support else "[dim]Unassigned[/dim]"
         status = (
             "[red]Cancelled[/red]"
             if e.is_cancelled

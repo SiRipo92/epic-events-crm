@@ -12,13 +12,6 @@ import questionary
 from rich.console import Console
 from sqlalchemy import Text, cast, select
 
-from exceptions import (
-    CollaboratorNotFoundError,
-    DuplicateEmailError,
-    PermissionDeniedError,
-    ReassignmentRequiredError,
-    ValidationError,
-)
 from models.client import Client
 from models.collaborator import Collaborator
 from models.contract import Contract
@@ -29,6 +22,13 @@ from services.collaborator_service import (
     get_collaborator_by_id,
     get_collaborators,
     update_collaborator,
+)
+from utils.exceptions import (
+    CollaboratorNotFoundError,
+    DuplicateEmailError,
+    PermissionDeniedError,
+    ReassignmentRequiredError,
+    ValidationError,
 )
 from utils.validation import validate_password
 from views.messages import Errors, Info, Prompts, Success

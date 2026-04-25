@@ -13,18 +13,18 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from exceptions import (
+from models.client import Client
+from models.collaborator import Collaborator
+from models.contract import Contract, ContractStatus
+from models.event import Event
+from permissions.decorators import require_role
+from utils.exceptions import (
     ClientNotFoundError,
     ContractNotEditableError,
     ContractNotFoundError,
     InvalidStatusTransitionError,
     PaymentExceedsBalanceError,
 )
-from models.client import Client
-from models.collaborator import Collaborator
-from models.contract import Contract, ContractStatus
-from models.event import Event
-from permissions.decorators import require_role
 
 # ── Contract Helper ─────────────────────────────────────────────────────────────────
 
@@ -351,18 +351,10 @@ def filter_contracts(
     status: ContractStatus | None = None,
     client_name: str | None = None,
 ) -> list[Contract]:
-    """Filter a scoped list of contracts by optional criteria.
+    """Filter a list of contracts by optional criteria.
 
-    Filters are applied on top of an already-scoped list from
-    get_contracts_for_user() — never bypasses role scoping.
-
-    Args:
-        contracts: Pre-scoped list of contracts to filter.
-        status: Optional status to filter by.
-        client_name: Optional client name substring to filter by.
-
-    Returns:
-        list[Contract]: Filtered contracts matching all provided criteria.
+    Filters are applied on top of a pre-fetched list — never issues
+    additional DB queries.
     """
     results = contracts
 
@@ -384,37 +376,32 @@ def filter_contracts(
 @require_role("MANAGEMENT", "COMMERCIAL", "SUPPORT")
 def get_contract_by_id(
     session: Session,
-    current_user: Collaborator,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
     contract_id: int,
 ) -> Contract:
-    """Return a single contract if within user's scope.
+    """Return a single contract by ID. All roles have read access.
 
     Raises:
-        ContractNotFoundError: If contract does not exist or is not accessible.
+        ContractNotFoundError: If contract does not exist.
     """
-    # Step 1 — fetch contract
     contract: Contract | None = session.get(Contract, contract_id)
-
     if not contract:
         raise _contract_not_found(contract_id)
+    return contract
 
-    # Step 2 — role-based access control
 
-    # MANAGEMENT → full access
-    if current_user.role.name == "MANAGEMENT":
-        return contract
+@require_role("MANAGEMENT", "COMMERCIAL", "SUPPORT")
+def get_all_contracts(
+    session: Session,
+    current_user: Collaborator,  # noqa: ARG001 — consumed by @require_role
+) -> list[Contract]:
+    """Return all contracts. All roles have read access to all contracts.
 
-    # COMMERCIAL → only own contracts
-    if current_user.role.name == "COMMERCIAL":
-        if contract.commercial_id != current_user.id:
-            raise _contract_not_found(contract_id)
-        return contract
+    Args:
+        session: SQLAlchemy database session.
+        current_user: Any authenticated collaborator.
 
-    # SUPPORT → only contracts linked to their events
-    if current_user.role.name == "SUPPORT":
-        if contract.event is None or contract.event.support_id != current_user.id:
-            raise _contract_not_found(contract_id)
-        return contract
-
-    # Should never be reached — @require_role enforces valid roles
-    raise _contract_not_found(contract_id)
+    Returns:
+        list[Contract]: All contracts in the system.
+    """
+    return list(session.scalars(select(Contract)).all())
