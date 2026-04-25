@@ -34,6 +34,7 @@ class Settings:
     def __init__(self):
         """Load and validate settings from environment variables."""
         self.database_url = os.getenv("DATABASE_URL", "")
+        self.test_database_url: str = os.getenv("TEST_DATABASE_URL", "")
         self.secret_key = os.getenv("SECRET_KEY", "")
         self.sentry_dsn = os.getenv("SENTRY_DSN", "")
         self.session_file = Path.home() / ".epic-events" / "session"

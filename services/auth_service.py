@@ -20,8 +20,8 @@ import sentry_sdk
 from sqlalchemy.orm import Session
 
 from config import settings
-from exceptions import AuthenticationError, ValidationError
 from models.collaborator import Collaborator
+from utils.exceptions import AuthenticationError, ValidationError
 from utils.validation import validate_password
 
 # ── Session file helpers ───────────────────────────────────────────────────────

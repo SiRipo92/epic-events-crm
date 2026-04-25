@@ -11,11 +11,6 @@ from __future__ import annotations
 import sentry_sdk
 from sqlalchemy.orm import Session, joinedload
 
-from exceptions import (
-    CollaboratorNotFoundError,
-    DuplicateEmailError,
-    ReassignmentRequiredError,
-)
 from models.client import Client
 from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
@@ -23,6 +18,11 @@ from models.event import Event
 from models.role import Role
 from permissions.decorators import require_role
 from services.auth_service import _delete_session_file
+from utils.exceptions import (
+    CollaboratorNotFoundError,
+    DuplicateEmailError,
+    ReassignmentRequiredError,
+)
 from utils.validation import validate_email, validate_password, validate_phone
 
 # ── Collaborator helpers ─────────────────────────────────────────────────────
