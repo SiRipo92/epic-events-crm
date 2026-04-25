@@ -10,11 +10,6 @@ from decimal import Decimal
 
 import pytest
 
-from exceptions import (
-    CollaboratorNotFoundError,
-    DuplicateEmailError,
-    ReassignmentRequiredError,
-)
 from models.client import Client
 from models.collaborator import Collaborator
 from models.contract import Contract, ContractStatus
@@ -25,6 +20,11 @@ from services.collaborator_service import (
     get_collaborator_by_id,
     get_collaborators,
     update_collaborator,
+)
+from utils.exceptions import (
+    CollaboratorNotFoundError,
+    DuplicateEmailError,
+    ReassignmentRequiredError,
 )
 
 logger = logging.getLogger(__name__)

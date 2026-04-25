@@ -2,8 +2,8 @@
 
 import pytest
 
-from exceptions import PermissionDeniedError
 from permissions.decorators import require_role
+from utils.exceptions import PermissionDeniedError
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
