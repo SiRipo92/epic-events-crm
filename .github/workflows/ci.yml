@@ -64,14 +64,15 @@ jobs:
 
       - name: Run tests with coverage
         env:
-          DATABASE_URL: postgresql://epic_events_user:test_password@localhost/epic_events_test
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+            DATABASE_URL: postgresql://epic_events_user:test_password@localhost/epic_events_test
+            TEST_DATABASE_URL: postgresql://epic_events_user:test_password@localhost/epic_events_test
+            SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: |
-          pytest tests/unit/ tests/integration/ \
-            --cov=. \
-            --cov-report=xml:coverage.xml \
-            --cov-report=term-missing \
-            --cov-fail-under=80
+            pytest tests/unit/ tests/integration/ \
+              --cov=. \
+              --cov-report=xml:coverage.xml \
+              --cov-report=term-missing \
+              --cov-fail-under=80
 
       # Generates badges/coverage.svg from coverage.xml and commits it back
       # to the branch — the README references this file directly, so the badge
