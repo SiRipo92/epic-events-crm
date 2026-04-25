@@ -45,7 +45,7 @@ CLI platform that enforces **role-based access** and logs all errors to
 |---|---|
 | Management | Full control over collaborators and all contracts; assign support to events |
 | Commercial | Create and manage own clients; create events for deposit-received contracts |
-| Support | View and update events assigned to them |
+| Support | View all records; update events assigned to them |
 
 **CRM Operations Flow:**
 
@@ -95,7 +95,7 @@ source .venv/bin/activate       # macOS / Linux
 # 3. Install production dependencies
 pip install -r requirements.txt
 
-# 4. Install dev dependencies (testing, linting, seed data)
+# 4. Install dev dependencies (testing, linting)
 pip install -r requirements-dev.txt
 ```
 
@@ -165,29 +165,23 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 
 ### 2. Run Alembic migrations
 
-Apply the full schema to both databases:
-
 ```bash
-# Apply to the application database
 alembic upgrade head
-
-# Apply to the test database
-DATABASE_URL=$TEST_DATABASE_URL alembic upgrade head
 ```
 
 This creates all tables and seeds the three roles (`MANAGEMENT`, `COMMERCIAL`,
-`SUPPORT`) automatically.
+`SUPPORT`) automatically. The integration test database schema is managed
+by the test suite via `Base.metadata.create_all()` — no manual migration needed.
 
 ### 3. Create the first Management account
 
-A fresh database has no collaborators. Create the first management-role account
-using the seed script:
+A fresh database has no collaborators. Seed the initial management account:
 
 ```bash
-python -m cli.commands.seed_admin
+python -m cli.commands.collaborators --seed-admin
 ```
 
-You will be prompted for a name, email, and temporary password. This account
+You will be prompted for a name, email, and temporary password. The account
 will be forced to change its password on first login. All subsequent
 collaborator accounts (Commercial, Support) are created from within the app
 by a logged-in Management user.
@@ -216,10 +210,14 @@ alembic revision --autogenerate -m "describe your change here"
 alembic upgrade head
 
 # Other useful Alembic commands
-alembic current          # Show which revision the DB is currently at
+alembic current            # Show which revision the DB is currently at
 alembic history --verbose  # Show full migration history
-alembic downgrade -1     # Roll back the last migration
+alembic downgrade -1       # Roll back the last migration
 ```
+
+### Data Model
+
+![Class Diagram](docs/Class_Diagram_EpicEvents.png)
 
 ---
 
@@ -265,12 +263,14 @@ The app is menu-driven. After login, you see a role-scoped menu:
 ```
 [1] Clients
 [2] Contracts
-[3] Events → includes "My Events" filter
+[3] Events
 [0] Logout
 ```
 
-Each menu option leads to a sub-menu with the actions available to that role.
-All navigation is number-based — no commands to memorise.
+All roles have read access to all clients, contracts, and events. Write
+operations are scoped by role — the sub-menu for each section only shows
+actions available to the logged-in role. Support users have a **My Events**
+filter inside the Events sub-menu to quickly list only their assigned events.
 
 ---
 
@@ -280,7 +280,7 @@ The test suite is structured in three layers:
 
 | Layer | Location | What it tests |
 |---|---|---|
-| Unit | `tests/unit/` | Model methods and decorators — no DB required |
+| Unit | `tests/unit/` | Service logic and decorators — no DB, mocked session |
 | Integration | `tests/integration/` | Services against a real test DB (`epic_events_test`) |
 | Functional | `tests/functional/` | Full CLI stack via Typer's test runner |
 
@@ -313,7 +313,8 @@ make coverage    # pytest --cov=. --cov-report=term-missing
 Coverage target: **80% minimum** (enforced in CI).
 
 > **Note:** Integration tests require `TEST_DATABASE_URL` to be set in your
-> `.env` and the `epic_events_test` database to exist with migrations applied.
+> `.env`. The test database schema is created automatically by the test session
+> fixture — no manual migration step needed.
 
 ---
 
@@ -352,168 +353,144 @@ exclude = .git,__pycache__,.venv,migrations/versions
 ```
 epic-events-crm/
 │
-├── main.py                        # Entry point — calls run_app()
+├── .github/
+│   ├── ISSUE_TEMPLATE/
+│   │   ├── bug_report.yml
+│   │   ├── epic.yml
+│   │   ├── tech_task.yml
+│   │   └── user_story.yml
+│   └── workflows/
+│       └── ci.yml                      # CI: lint → test → coverage on every PR
 │
-├── models/
-│   ├── __init__.py                # Re-exports all models
-│   ├── base.py                    # DeclarativeBase only
-│   ├── role.py                    # Role table (MANAGEMENT/COMMERCIAL/SUPPORT)
-│   ├── collaborator.py            # Collaborator ORM class
-│   ├── client.py                  # FK: commercial_id → collaborators.id
-│   ├── contract.py                # FK: commercial_id → collaborators.id
-│   └── event.py                   # FK: support_id → collaborators.id (nullable)
+├── cli/
+│   ├── commands/
+│   │   ├── __init__.py
+│   │   ├── clients.py                  # Client menu and handlers
+│   │   ├── collaborators.py            # Management-only CRUD
+│   │   ├── contracts.py                # Contract menu and handlers
+│   │   └── events.py                   # Event menu and handlers
+│   └── __init__.py
 │
 ├── db/
 │   ├── __init__.py
-│   └── session.py                 # Engine, SessionLocal, get_session()
+│   └── session.py                      # Engine, SessionLocal, get_session()
 │
-├── services/                      # Business logic — all DB writes happen here
-│   ├── __init__.py
-│   ├── auth_service.py            # Login, token creation, password change
-│   ├── collaborator_service.py
-│   ├── client_service.py
-│   ├── contract_service.py
-│   └── event_service.py
+├── docs/
+│   ├── badges/
+│   │   └── coverage.svg                # Auto-generated by CI (genbadge)
+│   ├── Class_Diagram_EpicEvents.png    # Database class diagram
+│   └── crm_flow.png                    # CRM operations flow diagram
 │
-├── cli/
+├── migrations/
+│   ├── versions/                       # Auto-generated migration scripts (committed)
 │   ├── __init__.py
-│   ├── app.py                     # Typer app — powers test suite and logout command
-│   └── commands/
-│       ├── auth.py                # Login / logout / password change
-│       ├── collaborators.py       # Management-only CRUD
-│       ├── clients.py
-│       ├── contracts.py
-│       └── events.py
+│   ├── env.py                          # Alembic env — reads DATABASE_URL from config
+│   └── script.py.mako
 │
-├── views/                         # Rich output only — no business logic
-│   ├── __init__.py
-│   ├── menus.py                   # Role-scoped menu loop
-│   ├── tables.py                  # Rich table renderers
-│   ├── messages.py                # All user-facing strings centralised
-│   ├── collaborators.py
-│   ├── clients.py
-│   ├── contracts.py
-│   └── events.py
+├── models/
+│   ├── __init__.py                     # Re-exports all models
+│   ├── base.py                         # DeclarativeBase only
+│   ├── client.py                       # FK: commercial_id → collaborators.id
+│   ├── collaborator.py
+│   ├── contract.py                     # FK: commercial_id → collaborators.id
+│   ├── event.py                        # FK: support_id → collaborators.id (nullable)
+│   └── role.py                         # Role table (MANAGEMENT/COMMERCIAL/SUPPORT)
 │
 ├── permissions/
 │   ├── __init__.py
-│   ├── roles.py                   # Role constants
-│   └── decorators.py              # @require_role(*roles) — raises PermissionDeniedError
+│   └── decorators.py                   # @require_role(*roles) — raises PermissionDeniedError
 │
-├── exceptions.py                  # All custom domain exceptions
-├── config.py                      # Loads .env, exposes Settings object
-│
-├── migrations/
-│   ├── env.py                     # Alembic env — reads DATABASE_URL from config
-│   ├── script.py.mako
-│   └── versions/                  # Auto-generated migration scripts (committed)
+├── services/                           # Business logic — all DB writes happen here
+│   ├── __init__.py
+│   ├── auth_service.py                 # Login, token creation, password change
+│   ├── client_service.py
+│   ├── collaborator_service.py
+│   ├── contract_service.py
+│   └── event_service.py
 │
 ├── tests/
-│   ├── conftest.py                # Shared fixtures (session, seeded objects)
+│   ├── functional/
+│   │   ├── __init__.py
+│   │   └── test_commands.py            # Full CLI stack via Typer CliRunner
+│   ├── integration/                    # Real DB (epic_events_test); tx rollback per test
+│   │   ├── __init__.py
+│   │   ├── conftest.py                 # DB engine, session, seeded object fixtures
+│   │   ├── test_auth_service.py
+│   │   ├── test_client_service.py
+│   │   ├── test_collaborator_service.py
+│   │   ├── test_contract_service.py
+│   │   └── test_event_service.py
 │   ├── unit/
-│   │   ├── models/
+│   │   ├── models/                     # ORM model property tests — no DB
+│   │   │   ├── __init__.py
 │   │   │   ├── test_client.py
 │   │   │   ├── test_collaborator.py
 │   │   │   ├── test_contract.py
 │   │   │   ├── test_event.py
 │   │   │   └── test_role.py
+│   │   ├── services/                   # Service logic tests — mocked session
+│   │   │   ├── __init__.py
+│   │   │   ├── test_auth_service.py
+│   │   │   ├── test_client_service.py
+│   │   │   ├── test_collaborator_service.py
+│   │   │   ├── test_contract_service.py
+│   │   │   └── test_event_service.py
+│   │   ├── utils/
+│   │   │   ├── __init__.py
+│   │   │   └── test_validation.py
+│   │   ├── __init__.py
 │   │   └── test_decorators.py
-│   ├── integration/               # Runs against epic_events_test; tx rollback per test
-│   └── functional/                # Full CLI stack via Typer CliRunner
+│   ├── __init__.py
+│   └── conftest.py                     # Shared unit test fixtures (mock users, factories)
 │
-├── .github/
-│   ├── workflows/ci.yml           # CI: lint → test → coverage on every PR
-│   └── ISSUE_TEMPLATE/
-│       ├── epic.yml
-│       ├── user_story.yml
-│       └── bug_report.yml
+├── utils/
+│   ├── __init__.py
+│   ├── exceptions.py                   # All custom domain exceptions
+│   └── validation.py                   # Shared validation helpers (email, dates, location)
 │
-├── .env.example                   # Variable names only — safe to commit
+├── views/                              # Rich output only — no business logic
+│   ├── __init__.py
+│   ├── menus.py                        # App entry point; role-scoped main menu loop
+│   ├── messages.py                     # All user-facing strings centralised
+│   ├── screens.py                      # Detail panels (client, contract, event, collaborator)
+│   └── tables.py                       # Rich table renderers for list views
+│
+├── .env.example                        # Variable names only — safe to commit
 ├── .gitignore
-├── alembic.ini                    # Alembic config (script_location, sqlalchemy.url)
-├── pyproject.toml                 # black + isort + coverage config
-├── setup.cfg                      # flake8 config
-├── pytest.ini                     # pytest config (testpaths, markers)
-├── Makefile                       # format / lint / check / test / coverage shortcuts
-├── requirements.txt               # Production dependencies
-├── requirements-dev.txt           # Dev dependencies (pytest, black, flake8, etc.)
-└── README.md
+├── alembic.ini                         # Alembic config (script_location, sqlalchemy.url)
+├── config.py                           # Loads .env, exposes Settings; initialises Sentry
+├── main.py                             # Entry point — calls run_app()
+├── Makefile                            # format / lint / check / test / coverage shortcuts
+├── pyproject.toml                      # black + isort + coverage config
+├── requirements-dev.txt                # Dev dependencies (pytest, black, flake8, etc.)
+├── requirements.txt                    # Production dependencies
+└── setup.cfg                          # flake8 config
 ```
 
 ---
 
 ## Sentry Setup
 
-Epic Events CRM uses [Sentry](https://sentry.io) for real-time error tracking.
-All unhandled exceptions and key security events (permission violations, failed
-logins) are captured automatically with full stack traces.
+Epic Events CRM uses [Sentry](https://sentry.io) for error tracking and
+security event logging. Sentry is initialised at startup in `config.py`
+via `init_sentry()`. If `SENTRY_DSN` is empty the app runs normally with
+no Sentry calls.
 
-### 1. Create a Sentry account and project
+**Setup:**
+1. Create a free account at [sentry.io](https://sentry.io) → new **Python** project
+2. Copy the DSN from **Settings → Projects → Client Keys**
+3. Add it to your `.env`: `SENTRY_DSN=https://your-key@sentry.io/your-id`
 
-1. Go to [sentry.io](https://sentry.io) and sign up (free tier is sufficient)
-2. Create a new project → select **Python**
-3. Copy the DSN: **Settings → Projects → your project → Client Keys (DSN)**
+**What is captured:**
 
-### 2. Add the DSN to your environment
-
-```env
-SENTRY_DSN=https://your-key@o0000000.ingest.sentry.io/0000000
-```
-
-Sentry is initialised at app startup inside `config.py` (or `main.py`):
-
-```python
-import sentry_sdk
-
-sentry_sdk.init(
-    dsn=settings.SENTRY_DSN,
-    traces_sample_rate=1.0,
-    environment="production",
-)
-```
-
-> If `SENTRY_DSN` is empty or not set, the SDK is a no-op — the app runs
-> normally without any Sentry calls.
-
-### 3. What is logged
-
-| Event | Sentry level |
+| Event | Level |
 |---|---|
 | Unhandled exceptions | `error` |
-| `PermissionDeniedError` — unauthorised action attempt | `warning` |
+| `PermissionDeniedError` — unauthorised action | `warning` |
 | Failed login attempt | `warning` |
-| Critical DB operation failure | `error` |
 
-### 4. Viewing events
-
-Log in to [sentry.io](https://sentry.io) → select your project:
-
-- **Issues** — every captured exception with stack trace, user context, and
-  breadcrumb trail
-- **Performance** → Transactions — traces for each CLI session
-- **Dashboards** — create a custom dashboard (see below)
-
-### 5. Creating a Sentry dashboard for the demo
-
-1. In your Sentry project, go to **Dashboards → Create Dashboard**
-2. Name it `Epic Events — Demo`
-3. Add the following widgets:
-
-| Widget | Type | Query |
-|---|---|---|
-| Total errors (all time) | Big Number | `event.type:error` |
-| Errors over time | Line chart | `event.type:error` |
-| Permission violations | Big Number | `PermissionDeniedError` |
-| Failed logins | Big Number | `failed login` |
-| Latest issues | Issue list | (default) |
-
-4. Click **Save** — this dashboard will be the first thing you open during
-   the soutenance to show Sentry is active and capturing events.
-
-> **Tip for the demo:** Before the soutenance, deliberately trigger a
-> `PermissionDeniedError` by attempting a forbidden action (e.g. a Support
-> user trying to create a collaborator). This ensures at least one real event
-> appears in the dashboard.
+PII scrubbing is applied via `before_send` in `config.py` before events
+leave the process.
 
 ---
 
@@ -542,8 +519,7 @@ hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12))
 ```
 
 Verification uses `bcrypt.checkpw()` — the plain-text password is never
-logged, stored, or exposed after the hash is produced. The cost factor makes
-offline dictionary attacks computationally expensive.
+logged, stored, or exposed after the hash is produced.
 
 ### Forced Password Change on First Login
 
@@ -559,8 +535,8 @@ After successful authentication, the app issues a signed **JSON Web Token**
 containing the collaborator's ID and role. The token is:
 
 - Signed with `SECRET_KEY` using the HS256 algorithm
-- Set to expire after **8 hours** (configurable via `JWT_EXPIRY_HOURS`)
-- Stored at `~/.epic_events/session` outside the project directory, with
+- Set to expire after **8 hours**
+- Stored at `~/.epic-events/session` outside the project directory, with
   permissions set to `chmod 600` (owner read/write only)
 
 No session state is held server-side. Each protected action re-verifies the
@@ -572,21 +548,19 @@ Every service function that performs a write or sensitive read is decorated
 with `@require_role(...)`. The check runs **before** any database interaction:
 
 ```python
-@require_role("Management", "Commercial")
-def update_client(session, token, client_id, **kwargs): ...
+@require_role("COMMERCIAL")
+def update_client(session, current_user, client, **kwargs): ...
 ```
 
 Attempting to call a protected function with an insufficient role raises a
 `PermissionDeniedError` immediately. These attempts are captured by Sentry
 as `warning`-level events.
 
-### Brute Force Mitigation
+### Principle of Least Privilege
 
-Failed login attempts are captured by Sentry as warnings with the attempted
-email and a timestamp. Sentry alert rules can be configured to notify (email
-or Slack) when the same source generates more than N failed logins within a
-time window. At the infrastructure level, the database user holds only
-`SELECT / INSERT / UPDATE / DELETE` — no `CREATEDB`, no `SUPERUSER`.
+The database user (`epic_events_user`) holds only `SELECT / INSERT / UPDATE /
+DELETE` on application tables — no `CREATEDB`, no `SUPERUSER`. All roles have
+read access to all records; write operations are scoped by the service layer.
 
 ### Secrets Management
 
@@ -597,16 +571,14 @@ empty values — is committed to the repository.
 
 ### PII Scrubbing in Sentry
 
-Sentry is initialised with a `before_send` hook that strips sensitive fields
-(passwords, tokens) from event payloads before they leave the process:
+Sentry is initialised with a `before_send` hook in `config.py` that strips
+sensitive fields from event payloads before they leave the process:
 
 ```python
-def before_send(event, hint):
+def _scrub_pii(event, hint):
     if "request" in event:
         event["request"].pop("data", None)
     return event
-
-sentry_sdk.init(dsn=..., before_send=before_send)
 ```
 
 ---
