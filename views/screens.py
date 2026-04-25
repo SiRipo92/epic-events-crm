@@ -14,11 +14,11 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from exceptions import ValidationError
 from models.client import Client
 from models.collaborator import Collaborator
 from models.contract import Contract
 from models.event import Event
+from utils.exceptions import ValidationError
 from utils.validation import validate_password
 from views.messages import Errors, Prompts
 from views.tables import CONTRACT_STATUS_STYLE
@@ -135,26 +135,20 @@ def render_collaborator_detail(
 def render_client_detail(
     client: Client,
     contracts_summary: list | None = None,
-    support_ids: set | None = None,
 ) -> None:
     """Render a full detail panel for a single client."""
     table = Table(box=box.SIMPLE, show_header=False, padding=(0, 1))
     table.add_column("Field", style="dim")
     table.add_column("Value")
 
+    commercial_name = client.commercial.full_name if client.commercial else "—"
+
     table.add_row("ID", str(client.id))
     table.add_row("Name", client.full_name)
     table.add_row("Email", client.email)
     table.add_row("Phone", client.phone or "—")
     table.add_row("Company", client.company_name or "—")
-    table.add_row("Commercial ID", str(client.commercial_id))
-    if support_ids:
-        table.add_row(
-            "Support assigned",
-            ", ".join(f"ID:{sid}" for sid in support_ids),
-        )
-    elif support_ids is not None:
-        table.add_row("Support assigned", "[dim]Unassigned[/dim]")
+    table.add_row("Commercial", commercial_name)
 
     if contracts_summary is not None:
         table.add_row(
@@ -164,9 +158,9 @@ def render_client_detail(
         for contract in contracts_summary:
             style = CONTRACT_STATUS_STYLE.get(contract.status, "")
             table.add_row(
-                f"  #{contract.id}",
+                f"  Contract #{contract.id} Status:",
                 f"[{style}]{contract.status.value.upper()}[/{style}]"
-                f" — {contract.remaining_amount:.2f} €",
+                f" — Payment Due: {contract.remaining_amount:.2f} €",
             )
 
     table.add_row(
@@ -196,8 +190,6 @@ def render_contract_detail(contract: Contract) -> None:
     Args:
         contract: The Contract instance to display.
     """
-    from views.tables import CONTRACT_STATUS_STYLE
-
     status_style = CONTRACT_STATUS_STYLE.get(contract.status, "")
     client_name = contract.client.full_name if contract.client else "—"
 
@@ -205,9 +197,11 @@ def render_contract_detail(contract: Contract) -> None:
     table.add_column("Field", style="dim")
     table.add_column("Value")
 
+    commercial_name = contract.commercial.full_name if contract.commercial else "—"
+
     table.add_row("Contract ID", str(contract.id))
     table.add_row("Client", client_name)
-    table.add_row("Commercial ID", str(contract.commercial_id))
+    table.add_row("Commercial", commercial_name)
     table.add_row("Total Amount", f"{contract.total_amount:.2f} €")
     table.add_row("Remaining", f"{contract.remaining_amount:.2f} €")
     table.add_row(
@@ -255,6 +249,8 @@ def render_event_detail(event: Event) -> None:
     table.add_column("Field", style="dim")
     table.add_column("Value")
 
+    support_name = event.support.full_name if event.support else "[dim]Unassigned[/dim]"
+
     table.add_row("Title", event.title)
     table.add_row("Contract ID", str(event.contract_id))
     table.add_row("Start", event.start_date.strftime("%d/%m/%Y %H:%M"))
@@ -262,10 +258,7 @@ def render_event_detail(event: Event) -> None:
     table.add_row("Location", event.location or "—")
     table.add_row("Attendees", str(event.attendees))
     table.add_row("Notes", event.notes or "—")
-    table.add_row(
-        "Support ID",
-        str(event.support_id) if event.support_id else "[dim]Unassigned[/dim]",
-    )
+    table.add_row("Support", support_name)
     table.add_row("Status", status)
     table.add_row(
         "Created",

@@ -18,7 +18,6 @@ from cli.commands.collaborators import collaborators_menu
 from cli.commands.contracts import contracts_menu
 from cli.commands.events import events_menu
 from db.session import get_session
-from exceptions import AuthenticationError, ValidationError
 from services.auth_service import (
     change_password,
     complete_first_login,
@@ -26,6 +25,7 @@ from services.auth_service import (
     login,
     logout,
 )
+from utils.exceptions import AuthenticationError, ValidationError
 from views.messages import Errors, Info, Success
 from views.screens import show_password_change_screen
 
@@ -149,14 +149,16 @@ def _show_main_menu(session, current_user) -> None:
         ]
     elif role == "COMMERCIAL":
         options = [
-            "My Clients",
-            "My Contracts",
+            "Clients",
+            "Contracts",
             "Events",
             Info.LOGOUT,
         ]
     else:  # SUPPORT
         options = [
-            "My Events",
+            "Clients",
+            "Contracts",
+            "Events",
             Info.LOGOUT,
         ]
 
@@ -178,15 +180,11 @@ def _show_main_menu(session, current_user) -> None:
             console.print(Success.LOGGED_OUT)
             return
 
-        if choice in ("Clients", "My Clients"):
+        if choice == "Clients":
             clients_menu(session, current_user)
-            pass
-        elif choice in ("Contracts", "My Contracts"):
+        elif choice == "Contracts":
             contracts_menu(session, current_user)
-            pass
-        elif choice in ("Events", "My Events"):
+        elif choice == "Events":
             events_menu(session, current_user)
-            pass
         elif choice == "Collaborators":
             collaborators_menu(session, current_user)
-            pass
